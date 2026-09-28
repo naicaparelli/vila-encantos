@@ -147,21 +147,24 @@ export class TitleScene extends Phaser.Scene {
     this.objects.push(this.add.text(width / 2, py + 14 * s, 'Quem vai recomeçar a vida na vila?', textStyle(14 * s, UI.title)).setOrigin(0.5, 0).setDepth(7));
 
     const slotW = panelW / 3;
+    const slotH = Math.min(130 * s, panelH * 0.46);
+    const slotY = py + 40 * s;
     SPECIES.forEach((sp, i) => {
       const cx = px + slotW * i + slotW / 2;
       const sel = this.selected === sp;
-      this.objects.push(new PixelPanel(this, cx - slotW / 2 + 8, py + 40 * s, slotW - 16, 130 * s, sel ? 'ui_slot_sel' : 'ui_slot').setDepth(7));
-      const spr = this.add.sprite(cx, py + 138 * s, `player_${sp}`, 'south_0').setOrigin(0.5, 1).setScale(2 * Math.min(1.4, s)).setDepth(8);
+      this.objects.push(new PixelPanel(this, cx - slotW / 2 + 8, slotY, slotW - 16, slotH, sel ? 'ui_slot_sel' : 'ui_slot').setDepth(7));
+      const spr = this.add.sprite(cx, slotY + slotH - 22 * s, `player_${sp}`, 'south_0').setOrigin(0.5, 1).setScale(Math.min(2 * Math.min(1.4, s), (slotH - 30 * s) / 48)).setDepth(8);
       if (sel) spr.play(`player_${sp}_walk_south`);
       this.objects.push(spr);
-      this.objects.push(this.add.text(cx, py + 146 * s, SPECIES_INFO[sp].name, textStyle(12 * s, sel ? UI.title : UI.text)).setOrigin(0.5, 0).setDepth(8));
-      const zone = this.add.zone(cx, py + 105 * s, slotW - 16, 130 * s).setInteractive({ useHandCursor: true }).setDepth(9);
+      this.objects.push(this.add.text(cx, slotY + slotH - 16 * s, SPECIES_INFO[sp].name, textStyle(11 * s, sel ? UI.title : UI.text)).setOrigin(0.5, 0).setDepth(8));
+      const zone = this.add.zone(cx, slotY + slotH / 2, slotW - 16, slotH).setInteractive({ useHandCursor: true }).setDepth(9);
       zone.on('pointerdown', () => { if (this.selected !== sp) { this.selected = sp; sfx('select'); this.build(); } });
       this.objects.push(zone);
     });
 
-    this.objects.push(this.add.text(width / 2, py + 178 * s, SPECIES_INFO[this.selected].desc, textStyle(10 * s, UI.textDim, { align: 'center', wordWrap: { width: panelW - 30 } })).setOrigin(0.5, 0).setDepth(8));
-    this.objects.push(this.add.text(width / 2, py + 208 * s, 'A escolha é apenas visual: todos têm as mesmas habilidades.', textStyle(9 * s, UI.textDim)).setOrigin(0.5, 0).setDepth(8));
+    const descY = slotY + slotH + 8 * s;
+    this.objects.push(this.add.text(width / 2, descY, SPECIES_INFO[this.selected].desc, textStyle((panelH < 280 * s ? 9 : 10) * s, UI.textDim, { align: 'center', wordWrap: { width: panelW - 30 } })).setOrigin(0.5, 0).setDepth(8));
+    if (panelH >= 280 * s) this.objects.push(this.add.text(width / 2, descY + 30 * s, 'A escolha é apenas visual: todos têm as mesmas habilidades.', textStyle(9 * s, UI.textDim)).setOrigin(0.5, 0).setDepth(8));
 
     const by = py + panelH - 24 * s;
     this.objects.push(new Button(this, width / 2 - 80 * s, by, 'Voltar', () => { this.mode = 'menu'; this.build(); }, { width: 130 * s, height: 32 * s, fontSize: 13 * s }).setDepth(9));
