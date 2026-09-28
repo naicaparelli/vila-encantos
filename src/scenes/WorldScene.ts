@@ -79,6 +79,12 @@ export class WorldScene extends Phaser.Scene {
 
   private stateHandlers: Array<[string, (...args: unknown[]) => void]> = [];
 
+  // efeitos ambientais
+  private ambient: Array<{ img: Phaser.GameObjects.Image; vx: number; vy: number; phase: number; kind: 'leaf' | 'petal' | 'firefly' | 'mote' }> = [];
+  private beam: Phaser.GameObjects.Image | null = null;
+  private puffTimer = 0;
+  private fountainSparkleTimer = 0;
+
   constructor() { super('WorldScene'); }
 
   get ui(): UIScene | null {
@@ -122,6 +128,7 @@ export class WorldScene extends Phaser.Scene {
     this.buildPlaced();
     this.buildPlayer();
     this.buildInput();
+    this.buildAmbient();
 
     this.decorCursor = this.add.image(0, 0, 'cursorTile').setOrigin(0).setDepth(5000).setVisible(false);
 
@@ -247,9 +254,13 @@ export class WorldScene extends Phaser.Scene {
     for (const [side, n] of sides) { const k = edge(n); if (k) this.addTileImage(`${k}${side}`, x, y, 0.5); }
     if (me === 'water' || me === 'path') {
       const corner = me === 'water' ? 'cornerWater' : 'cornerPath';
+      const cap = me === 'water' ? 'capWater' : 'capPath';
       const out = (n: typeof N) => (me === 'water' ? n !== 'water' : n === 'grass');
       const diag: Array<[string, number, number, typeof N, typeof N]> = [['NE', 1, -1, N, E], ['NW', -1, -1, N, W], ['SE', 1, 1, S, E], ['SW', -1, 1, S, W]];
-      for (const [name, dx, dy, a, b] of diag) if (out(cls(dx, dy)) && !out(a) && !out(b)) this.addTileImage(`${corner}${name}`, x, y, 0.5);
+      for (const [name, dx, dy, a, b] of diag) {
+        if (out(cls(dx, dy)) && !out(a) && !out(b)) this.addTileImage(`${corner}${name}`, x, y, 0.5);
+        if (out(a) && out(b)) this.addTileImage(`${cap}${name}`, x, y, 0.6); // canto externo arredondado
+      }
     }
   }
 
@@ -475,6 +486,7 @@ export class WorldScene extends Phaser.Scene {
   // =========================================================================
   update(time: number, delta: number): void {
     this.animateWater(delta);
+    this.updateAmbient(time, delta);
     this.nodeTimer += delta;
     if (this.nodeTimer > 250) { this.nodeTimer = 0; this.updateNodeVisuals(false); }
 
@@ -541,6 +553,8 @@ export class WorldScene extends Phaser.Scene {
     const anim = `player_${game.data.species}_walk_${this.dir}`;
     if (this.player.anims.currentAnim?.key !== anim || !this.player.anims.isPlaying) this.player.play(anim, true);
     this.player.anims.msPerFrame = run ? 80 : 125;
+    this.puffTimer += delta;
+    if (this.puffTimer > (run ? 140 : 320)) { this.puffTimer = 0; this.puffAt(this.player.x - dx * 6, this.player.y - 2); }
     this.player.setDepth(this.player.y);
     this.shadow.setPosition(this.player.x, this.player.y - 2);
     this.checkDoors();
@@ -664,6 +678,7 @@ export class WorldScene extends Phaser.Scene {
         sfx('open');
         game.setFlag('window_open');
         this.lightBurst();
+        this.buildAmbient();
         this.say(narrator(...TEXTS.windowOpen));
         break;
       case 'photo':
@@ -875,12 +890,16 @@ export class WorldScene extends Phaser.Scene {
     this.restoring = true;
     this.vibrant = true;
     sfx('restore');
+    this.restoreRing(cx, cy);
     const swap = (img: Phaser.GameObjects.Image, base: string, x: number, y: number, extraSparkle: boolean) => {
       const d = Math.hypot(x - cx, y - cy);
       this.time.delayedCall(d * 3 + Phaser.Math.Between(0, 80), () => {
         if (!img.active) return;
         if (this.textures.exists(base)) img.setTexture(base);
         if (extraSparkle && Math.random() < 0.25) this.sparkleAt(x, y, 1);
+        // pulso de luz no objeto restaurado
+        img.setTint(0xfff2c8);
+        this.time.delayedCall(140, () => { if (img.active && this.target?.ref.sprite !== img) img.clearTint(); });
       });
     };
     for (const t of this.tileImgs) swap(t, t.getData('base'), t.x + 16, t.y + 16, false);
@@ -898,8 +917,104 @@ export class WorldScene extends Phaser.Scene {
     this.time.delayedCall(maxD * 3 + 300, () => {
       this.restoring = false;
       if (this.def.musicRestored) music.play(this.def.musicRestored);
+      this.buildAmbient();
       onDone?.();
     });
+  }
+
+  /** Anel de luz que se expande a partir do ponto de restauração (acompanha a onda de troca de texturas). */
+  private restoreRing(cx: number, cy: number): void {
+    const maxD = Math.hypot(this.cols * TILE, this.rows * TILE);
+    const g = this.add.graphics().setDepth(5500);
+    const state = { r: 8 };
+    this.tweens.add({
+      targets: state, r: maxD, duration: maxD * 3, ease: 'Linear',
+      onUpdate: () => {
+        g.clear();
+        const a = Phaser.Math.Clamp(1 - state.r / maxD, 0, 1);
+        g.lineStyle(6, 0xfff2c8, 0.35 * a); g.strokeCircle(cx, cy, state.r);
+        g.lineStyle(2, 0xffffff, 0.8 * a); g.strokeCircle(cx, cy, state.r);
+        g.lineStyle(3, 0xffc857, 0.5 * a); g.strokeCircle(cx, cy, Math.max(0, state.r - 10));
+      },
+      onComplete: () => g.destroy(),
+    });
+    // flash suave na tela
+    const flash = this.add.graphics().setDepth(7000).setScrollFactor(0);
+    flash.fillStyle(0xfff2c8, 0.35);
+    flash.fillRect(-2000, -2000, 6000, 6000);
+    this.tweens.add({ targets: flash, alpha: 0, duration: 700, onComplete: () => flash.destroy() });
+  }
+
+  // =========================================================================
+  // efeitos ambientais (folhas, pétalas, vaga-lumes, poeira, luz da janela)
+  // =========================================================================
+  private buildAmbient(): void {
+    for (const a of this.ambient) a.img.destroy();
+    this.ambient = [];
+    this.beam?.destroy(); this.beam = null;
+    const mapW = this.cols * TILE; const mapH = this.rows * TILE;
+    const spawn = (kind: 'leaf' | 'petal' | 'firefly' | 'mote', n: number, area: { x: number; y: number; w: number; h: number }) => {
+      for (let i = 0; i < n; i++) {
+        const tex = kind === 'leaf' ? `fx_leaf${i % 3}` : kind === 'petal' ? `fx_petal${i % 3}` : kind === 'firefly' ? 'fx_firefly' : 'fx_mote';
+        const img = this.add.image(area.x + Math.random() * area.w, area.y + Math.random() * area.h, tex).setDepth(kind === 'mote' ? 3 : 4500).setAlpha(kind === 'firefly' ? 0.9 : 0.85);
+        img.setData('area', area);
+        const vx = kind === 'firefly' ? 0 : kind === 'mote' ? 2 : 10 + Math.random() * 10;
+        const vy = kind === 'leaf' ? 14 + Math.random() * 10 : kind === 'petal' ? 10 + Math.random() * 8 : kind === 'mote' ? 3 : 0;
+        this.ambient.push({ img, vx, vy, phase: Math.random() * Math.PI * 2, kind });
+      }
+    };
+    const all = { x: 0, y: 0, w: mapW, h: mapH };
+    if (this.mapId === 'praca') spawn(this.vibrant ? 'petal' : 'leaf', 14, all);
+    if (this.mapId === 'floresta') { spawn('firefly', 12, all); spawn('leaf', 6, all); }
+    if (this.mapId === 'atelier' && game.flag('window_open')) {
+      // feixe de luz da janela (tile 7,1) caindo no chão
+      this.beam = this.add.image(7 * TILE + 4, 1 * TILE + 26, 'fx_beam').setOrigin(0.25, 0).setDepth(3).setAlpha(this.vibrant ? 0.75 : 0.55);
+      this.beam.setBlendMode(Phaser.BlendModes.ADD);
+      spawn('mote', 10, { x: 7 * TILE - 10, y: 2 * TILE, w: 90, h: 110 });
+    }
+  }
+
+  private updateAmbient(time: number, delta: number): void {
+    if (this.ambient.length === 0 && !this.beam) return;
+    const dt = delta / 1000;
+    const t = time / 1000;
+    for (const a of this.ambient) {
+      const area = a.img.getData('area') as { x: number; y: number; w: number; h: number };
+      if (a.kind === 'firefly') {
+        a.img.x += Math.cos(t * 0.7 + a.phase) * 12 * dt;
+        a.img.y += Math.sin(t * 1.1 + a.phase * 1.3) * 10 * dt;
+        a.img.setAlpha(0.35 + 0.65 * Math.abs(Math.sin(t * 2 + a.phase)));
+      } else if (a.kind === 'mote') {
+        a.img.x += Math.sin(t * 0.8 + a.phase) * 4 * dt;
+        a.img.y += a.vy * dt;
+        a.img.setAlpha(0.3 + 0.5 * Math.abs(Math.sin(t * 1.5 + a.phase)));
+      } else {
+        a.img.x += (a.vx * 0.5 + Math.sin(t * 2 + a.phase) * a.vx) * dt;
+        a.img.y += a.vy * dt;
+        a.img.setAngle(Math.sin(t * 3 + a.phase) * 35);
+      }
+      if (a.img.y > area.y + area.h + 8) { a.img.y = area.y - 8; a.img.x = area.x + Math.random() * area.w; }
+      if (a.img.x > area.x + area.w + 8) a.img.x = area.x - 8;
+      if (a.img.x < area.x - 8) a.img.x = area.x + area.w + 8;
+      if (a.img.y < area.y - 8) a.img.y = area.y + area.h;
+    }
+    if (this.beam) this.beam.setAlpha((this.vibrant ? 0.7 : 0.5) + 0.08 * Math.sin(t * 1.3));
+    // brilhos na fonte restaurada
+    if (this.mapId === 'praca' && this.vibrant) {
+      this.fountainSparkleTimer += delta;
+      if (this.fountainSparkleTimer > 900) {
+        this.fountainSparkleTimer = 0;
+        const f = this.interacts.find((i) => i.obj.kind === 'fountain');
+        if (f) this.sparkleAt(f.sprite.x + 48 + Phaser.Math.Between(-30, 30), f.sprite.y + 60 + Phaser.Math.Between(-10, 10), 1);
+      }
+    }
+  }
+
+  /** Nuvenzinha de poeira nos pés ao andar/correr. */
+  private puffAt(x: number, y: number): void {
+    if (this.def.indoor && this.mapId !== 'atelier') return;
+    const p = this.add.image(x + Phaser.Math.Between(-3, 3), y, 'fx_puff').setDepth(this.player.y - 1).setAlpha(0.7).setScale(0.6);
+    this.tweens.add({ targets: p, alpha: 0, scale: 1.2, y: y - 6, duration: 380, onComplete: () => p.destroy() });
   }
 
   /** Sequência final: fragmento levado à fonte (README §15). */

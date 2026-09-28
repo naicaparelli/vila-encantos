@@ -305,6 +305,37 @@ export function cornerWater(corner: 'NE' | 'NW' | 'SE' | 'SW'): Pix {
   return p;
 }
 
+/**
+ * Canto externo arredondado (quando os dois lados do canto são de outro terreno):
+ * a grama "engole" o canto do tile com um quarto de círculo.
+ */
+export function capOuter(kind: 'water' | 'path', corner: 'NE' | 'NW' | 'SE' | 'SW'): Pix {
+  const p = new Pix(T, T);
+  const R = 9;
+  const cx = corner.includes('E') ? T - 1 : 0;
+  const cy = corner.includes('S') ? T - 1 : 0;
+  for (let y = 0; y < T; y++)
+    for (let x = 0; x < T; x++) {
+      const dx = Math.abs(x - cx); const dy = Math.abs(y - cy);
+      if (dx > R + 3 || dy > R + 3) continue;
+      // distância ao centro do arco (que fica a R px do canto, dentro do tile)
+      const ax = cx + (corner.includes('E') ? -R : R); const ay = cy + (corner.includes('S') ? -R : R);
+      const inArcQuadrant = (corner.includes('E') ? x > ax : x < ax) && (corner.includes('S') ? y > ay : y < ay);
+      if (!inArcQuadrant) continue;
+      const d = Math.hypot(x - ax, y - ay);
+      if (kind === 'water') {
+        if (d > R + 1.5) p.set(x, y, P.grassDark);
+        else if (d > R - 0.5) p.set(x, y, corner.startsWith('N') ? P.dirtDark : mix(P.grassDark, P.dirtDark, 0.5));
+        else if (d > R - 2.5) p.set(x, y, corner.startsWith('N') ? P.waterDark : P.water);
+        else if (d > R - 3.5 && DITHER.checker(x, y)) p.set(x, y, corner.startsWith('N') ? P.waterDark : P.waterLight);
+      } else {
+        if (d > R + 1) p.set(x, y, (x + y) % 5 === 0 ? P.grassDark : P.grass);
+        else if (d > R - 0.5) p.set(x, y, corner.startsWith('N') ? P.dirtDark : mix(P.dirt, P.dirtLight, 0.5));
+      }
+    }
+  return p;
+}
+
 /** Grama avançando sobre o caminho (caminho levemente mais baixo que a grama). */
 export function edgePath(side: 'N' | 'S' | 'E' | 'W'): Pix {
   const p = new Pix(T, T);
@@ -533,5 +564,7 @@ export const TILE_GENERATORS: Record<string, () => Pix> = {
   cornerWaterNE: () => cornerWater('NE'), cornerWaterNW: () => cornerWater('NW'), cornerWaterSE: () => cornerWater('SE'), cornerWaterSW: () => cornerWater('SW'),
   edgePathN: () => edgePath('N'), edgePathS: () => edgePath('S'), edgePathE: () => edgePath('E'), edgePathW: () => edgePath('W'),
   cornerPathNE: () => cornerPath('NE'), cornerPathNW: () => cornerPath('NW'), cornerPathSE: () => cornerPath('SE'), cornerPathSW: () => cornerPath('SW'),
+  capWaterNE: () => capOuter('water', 'NE'), capWaterNW: () => capOuter('water', 'NW'), capWaterSE: () => capOuter('water', 'SE'), capWaterSW: () => capOuter('water', 'SW'),
+  capPathNE: () => capOuter('path', 'NE'), capPathNW: () => capOuter('path', 'NW'), capPathSE: () => capOuter('path', 'SE'), capPathSW: () => capOuter('path', 'SW'),
   edgeCobbleN: () => edgeCobble('N'), edgeCobbleS: () => edgeCobble('S'), edgeCobbleE: () => edgeCobble('E'), edgeCobbleW: () => edgeCobble('W'),
 };

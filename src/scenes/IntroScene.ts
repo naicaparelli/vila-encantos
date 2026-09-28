@@ -35,6 +35,7 @@ export class IntroScene extends Phaser.Scene {
         build: (c, w, h, s) => {
           this.officeBackdrop(c, w, h, s);
           const z = Math.min(3, Math.max(2, s * 1.6));
+          c.add(this.add.image(w / 2, h * 0.5 + 40 * z, 'shadow').setDisplaySize(70 * z, 14 * z).setAlpha(0.5));
           c.add(this.add.image(w / 2, h * 0.5, 'officeDesk').setScale(z));
           c.add(this.add.sprite(w / 2, h * 0.5 + 36 * z, `player_${sp}`, 'north_0').setScale(z).setOrigin(0.5, 1));
           c.add(this.add.image(w / 2, h * 0.5 + 44 * z, 'officeChair').setScale(z).setOrigin(0.5, 1).setAlpha(0.9));
@@ -44,15 +45,21 @@ export class IntroScene extends Phaser.Scene {
         caption: 'Até que, entre um e-mail e outro, um anúncio aparece na tela.',
         build: (c, w, h, s) => {
           this.officeBackdrop(c, w, h, s);
-          const pw = Math.min(w - 40, 420 * s);
-          const ph = 150 * s;
+          const pw = Math.min(w - 40, 440 * s);
+          const ph = 160 * s;
+          // monitor com o anúncio
           const g = this.add.graphics();
-          g.fillStyle(0x7fb2d6, 1); g.fillRoundedRect(w / 2 - pw / 2, h / 2 - ph / 2, pw, ph, 6);
-          g.fillStyle(0xf3e6c8, 1); g.fillRoundedRect(w / 2 - pw / 2 + 8, h / 2 - ph / 2 + 8, pw - 16, ph - 16, 4);
+          g.fillStyle(0x4a5060, 1); g.fillRoundedRect(w / 2 - pw / 2 - 10 * s, h / 2 - ph / 2 - 10 * s, pw + 20 * s, ph + 20 * s, 6);
+          g.fillStyle(0x7fb2d6, 1); g.fillRect(w / 2 - pw / 2 - 4 * s, h / 2 - ph / 2 - 4 * s, pw + 8 * s, ph + 8 * s);
           c.add(g);
-          c.add(this.add.image(w / 2 - pw / 2 + 60 * s, h / 2, 'facadeAtelierNew').setScale(0.5 * s));
-          c.add(this.add.text(w / 2 + 40 * s, h / 2, 'Recomece sua vida na encantadora\nVila dos Pequenos Encantos.\n\nAteliê mobiliado, vista privilegiada\ne vizinhos acolhedores.', {
-            fontFamily: 'Georgia, serif', fontSize: `${Math.round(11 * s)}px`, color: '#3a2a2e', align: 'center', wordWrap: { width: pw - 140 * s },
+          c.add(drawPanel(this, w / 2 - pw / 2, h / 2 - ph / 2, pw, ph));
+          c.add(this.add.image(w / 2 - pw / 2 + 70 * s, h / 2 + 4 * s, 'facadeAtelierNew').setScale(0.55 * s));
+          c.add(this.add.image(w / 2 - pw / 2 + 70 * s, h / 2 - 52 * s, 'sparkle0').setScale(s));
+          c.add(this.add.text(w / 2 + 50 * s, h / 2 - 8 * s, 'Recomece sua vida na encantadora\nVila dos Pequenos Encantos.', {
+            fontFamily: 'Georgia, serif', fontSize: `${Math.round(12 * s)}px`, color: UI.title, align: 'center', wordWrap: { width: pw - 150 * s },
+          }).setOrigin(0.5));
+          c.add(this.add.text(w / 2 + 50 * s, h / 2 + 34 * s, 'Ateliê mobiliado, vista privilegiada\ne vizinhos acolhedores.', {
+            fontFamily: 'Georgia, serif', fontSize: `${Math.round(10 * s)}px`, color: UI.textDim, align: 'center', wordWrap: { width: pw - 150 * s },
           }).setOrigin(0.5));
         },
       },
@@ -60,14 +67,21 @@ export class IntroScene extends Phaser.Scene {
         caption: 'Você compra o ateliê naquela noite. Pede demissão na manhã seguinte. E parte cheio de expectativas.',
         build: (c, w, h, s) => {
           const g = this.add.graphics();
-          g.fillStyle(0xc9d6e6, 1); g.fillRect(0, 0, w, h);
+          const bands = 6;
+          for (let i = 0; i < bands; i++) { const col = Phaser.Display.Color.Interpolate.ColorWithColor(Phaser.Display.Color.ValueToColor('#7fb2d6'), Phaser.Display.Color.ValueToColor('#dbe8f6'), bands - 1, i); g.fillStyle(Phaser.Display.Color.GetColor(col.r, col.g, col.b), 1); g.fillRect(0, (h * 0.62 * i) / bands, w, h * 0.62 / bands + 1); }
+          g.fillStyle(0x8fb08a, 1); g.fillEllipse(w * 0.3, h * 0.62, w * 0.9, 80 * s); g.fillEllipse(w * 0.85, h * 0.62, w * 0.8, 60 * s);
           c.add(g);
+          for (let i = 0; i < 3; i++) { const cl = this.add.image(w * (0.15 + i * 0.35), h * (0.12 + (i % 2) * 0.12), `fx_cloud${i}`).setScale(Math.min(2, s * 1.2)); c.add(cl); this.tweens.add({ targets: cl, x: cl.x - 60 * s, duration: 5200, ease: 'Linear' }); }
           const cols = Math.ceil(w / 32) + 2;
           for (let x = 0; x < cols; x++) {
             c.add(this.add.image(x * 32, h * 0.62, 'tile_grass').setOrigin(0));
             c.add(this.add.image(x * 32, h * 0.62 + 32, 'tile_path').setOrigin(0));
+            c.add(this.add.image(x * 32, h * 0.62 + 32, 'tile_edgePathN').setOrigin(0));
+            c.add(this.add.image(x * 32, h * 0.62 + 32, 'tile_edgePathS').setOrigin(0));
             c.add(this.add.image(x * 32, h * 0.62 + 64, 'tile_grass2').setOrigin(0));
+            for (let y = 3; y * 32 < h - h * 0.62; y++) c.add(this.add.image(x * 32, h * 0.62 + y * 32, (x + y) % 4 === 0 ? 'tile_flowers' : 'tile_grass').setOrigin(0));
             if (x % 3 === 0) c.add(this.add.image(x * 32 + 16, h * 0.62 + 4, x % 2 ? 'tree' : 'treeRound').setOrigin(0.5, 1));
+            if (x % 3 === 1) c.add(this.add.image(x * 32, h * 0.62 - 4, 'tile_fenceH').setOrigin(0, 1));
           }
           const z = Math.min(2.5, Math.max(1.5, s * 1.3));
           const bus = this.add.image(-120, h * 0.62 + 48, 'busSide').setScale(z).setOrigin(0.5, 1);
@@ -87,6 +101,8 @@ export class IntroScene extends Phaser.Scene {
           c.add(this.add.image(w / 2 - 140 * z, h * 0.45, 'houseA__faded').setScale(z * 0.8).setOrigin(0.5, 1));
           c.add(this.add.image(w / 2 + 140 * z, h * 0.45, 'houseB__faded').setScale(z * 0.8).setOrigin(0.5, 1));
           c.add(this.add.image(w / 2 - 60 * z, h * 0.9, 'signBroken__faded').setScale(z).setOrigin(0.5, 1));
+          c.add(this.add.image(w / 2 - 110 * z, h * 0.75, 'lamppost__faded').setScale(z).setOrigin(0.5, 1));
+          c.add(this.add.image(w / 2 + 110 * z, h * 0.75, 'lamppost__faded').setScale(z).setOrigin(0.5, 1));
           for (let i = 0; i < 6; i++) c.add(this.add.image(w * (0.15 + i * 0.14), h * (0.55 + (i % 2) * 0.3), 'leavesPile__faded').setScale(z));
           c.add(this.add.sprite(w / 2 + 40 * z, h * 0.92, `player_${sp}`, 'north_0').setScale(z).setOrigin(0.5, 1));
         },
@@ -103,6 +119,7 @@ export class IntroScene extends Phaser.Scene {
           const glow = this.add.image(w / 2 + 4 * z, h * 0.8 - 60 * z, 'sparkle0').setScale(z);
           c.add(glow);
           this.tweens.add({ targets: glow, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
+          for (let i = 0; i < 8; i++) { const lf = this.add.image(Math.random() * w, Math.random() * h, `fx_leaf${i % 3}`).setScale(z).setAlpha(0.8); c.add(lf); this.tweens.add({ targets: lf, y: h + 20, x: lf.x + 40 * z, angle: 160, duration: 5000 + Math.random() * 3000, repeat: -1, onRepeat: () => { lf.y = -20; lf.x = Math.random() * w; } }); }
           c.add(this.add.sprite(w / 2, h * 0.95, `player_${sp}`, 'north_0').setScale(z).setOrigin(0.5, 1));
         },
       },
@@ -126,6 +143,9 @@ export class IntroScene extends Phaser.Scene {
     const cols = Math.ceil(w / 32) + 1;
     const rows = Math.ceil(h / 32) + 1;
     for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) c.add(this.add.image(x * 32, y * 32, y < 3 ? 'tile_officeWall' : 'tile_office').setOrigin(0));
+    const lights = this.add.graphics();
+    for (let x = w * 0.15; x < w; x += w * 0.3) { lights.fillStyle(0xe8f0ff, 0.9); lights.fillRect(x, 8, 60 * s, 6 * s); lights.fillStyle(0xe8f0ff, 0.08); lights.fillTriangle(x - 20 * s, h, x + 80 * s, h, x + 30 * s, 14 * s); }
+    c.add(lights);
     c.add(this.add.image(w * 0.25, 40, 'officeWindow').setOrigin(0.5, 0).setScale(Math.min(2, s)));
     c.add(this.add.image(w * 0.8, 96 + 40 * s, 'officePlant').setOrigin(0.5, 1).setScale(Math.min(2, s)));
     const dim = this.add.graphics();

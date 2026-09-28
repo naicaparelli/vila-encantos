@@ -1257,6 +1257,59 @@ export function cursorTileBad(): Pix { const p = new Pix(32, 32); p.rrectOutline
 export function fragmentBig(): Pix { const p = new Pix(24, 32); p.triangle(12, 2, 12, P.amber); p.rect(6, 14, 12, 8, P.amber); for (let y = 22; y < 28; y++) p.hline(6 + (y - 22), 18 - (y - 22), y, P.amber); p.vline(9, 6, 20, P.white); p.vline(10, 8, 18, P.mustardLight); p.vline(15, 8, 22, P.amberDark); p.vline(16, 12, 20, P.amberDark); p.set(12, 2, P.white); p.outline(P.outline); return p; }
 export function letter(): Pix { const p = new Pix(24, 18); p.rect(2, 3, 20, 13, P.cream); p.hline(2, 21, 3, P.creamLight); p.hline(2, 21, 15, P.creamDark); p.line(2, 3, 12, 10, P.creamDark); p.line(22, 3, 12, 10, P.creamDark); p.rect(10, 9, 5, 4, P.coral); p.set(12, 9, P.coralLight); p.hline(10, 14, 12, P.coralDark); p.outline(P.outline); return p; }
 
+/** Partículas ambientais: folha, pétala, vaga-lume, poeira e feixe de luz da janela. */
+export function leaf(kind: number): Pix {
+  const p = new Pix(8, 8);
+  const c = [P.mustardDark, P.orangeDark, P.caramel][kind % 3];
+  p.rect(2, 3, 4, 2, c); p.set(1, 4, c); p.set(6, 3, c); p.set(3, 2, lighten(c, 0.25)); p.set(4, 5, darken(c, 0.2)); p.set(5, 2, darken(c, 0.3));
+  return p;
+}
+export function petal(kind: number): Pix {
+  const p = new Pix(6, 6);
+  const c = [P.pink, P.coralLight, P.white][kind % 3];
+  p.rect(2, 1, 2, 4, c); p.rect(1, 2, 4, 2, c); p.set(2, 2, lighten(c, 0.3)); p.set(3, 3, darken(c, 0.15));
+  return p;
+}
+export function firefly(): Pix {
+  const p = new Pix(8, 8);
+  p.disc(4, 4, 3, P.amber, 60); p.disc(4, 4, 2, P.amber, 140); p.set(4, 4, P.white); p.set(3, 4, P.mustardLight); p.set(4, 3, P.mustardLight);
+  return p;
+}
+export function dustPuff(): Pix {
+  const p = new Pix(10, 8);
+  p.ellipseBlend(5, 4, 4, 3, P.creamDark, 150); p.ellipseBlend(4, 3, 2, 1, P.cream, 170);
+  return p;
+}
+export function lightBeam(): Pix {
+  // feixe inclinado que entra pela janela e cai no chão (alpha decrescente)
+  const p = new Pix(96, 128);
+  for (let y = 0; y < p.h; y++) {
+    const t = y / p.h;
+    const half = 12 + t * 34;
+    const cx = 30 + t * 30;
+    const a = Math.round(150 * (1 - t) * (1 - t) + 10);
+    for (let x = Math.round(cx - half); x <= Math.round(cx + half); x++) {
+      const edge = Math.abs(x - cx) / half;
+      const aa = Math.round(a * (1 - edge * 0.6));
+      if (aa < 6) continue;
+      if (edge > 0.8 && !DITHER.checker(x, y)) continue;
+      p.set(x, y, '#fff2c8', aa);
+    }
+  }
+  return p;
+}
+export function mote(): Pix { const p = new Pix(3, 3); p.set(1, 1, P.white, 220); p.set(0, 1, P.cream, 120); p.set(2, 1, P.cream, 120); p.set(1, 0, P.cream, 120); p.set(1, 2, P.cream, 120); return p; }
+export function cloud(seed: number): Pix {
+  const p = new Pix(64, 28);
+  const r = rng(seed);
+  const n = 4 + Math.floor(r() * 3);
+  for (let i = 0; i < n; i++) { const x = 10 + Math.floor(r() * 44); const y = 14 + Math.floor(r() * 6); const rad = 5 + Math.floor(r() * 6); p.disc(x, y, rad, P.white); }
+  p.rect(8, 18, 48, 6, P.white);
+  for (let i = 0; i < n; i++) { const x = 10 + Math.floor(r() * 44); const rad = 3 + Math.floor(r() * 4); p.disc(x, 20, rad, '#dbe8f6'); }
+  p.rectDither(6, 20, 52, 6, '#dbe8f6', DITHER.checker);
+  return p;
+}
+
 // ---------------------------------------------------------------------------
 // Escritório (cinemática)
 // ---------------------------------------------------------------------------
@@ -1341,10 +1394,14 @@ export const OBJECT_GENERATORS: Record<string, () => Pix> = {
   ui_bag: uiBag, ui_book: uiBook, ui_map: uiMap, ui_hand: uiHand, ui_run: uiRun, ui_decor: uiDecor, ui_rotate: uiRotate, ui_close: uiClose, ui_pickup: uiPickup, ui_check: uiCheck,
   markerExclaim, sparkle0: () => sparkle(0), sparkle1: () => sparkle(1), heart, shadow, cursorTile, cursorTileBad, fragmentBig, letter,
   officeDesk, officeChair, officeWindow, officePlant, busSide,
+  fx_leaf0: () => leaf(0), fx_leaf1: () => leaf(1), fx_leaf2: () => leaf(2),
+  fx_petal0: () => petal(0), fx_petal1: () => petal(1), fx_petal2: () => petal(2),
+  fx_firefly: firefly, fx_puff: dustPuff, fx_beam: lightBeam, fx_mote: mote,
+  fx_cloud0: () => cloud(1), fx_cloud1: () => cloud(2), fx_cloud2: () => cloud(3),
 };
 
 /** Objetos que NÃO recebem a variante desbotada (UI, ícones, efeitos). */
-export const NO_FADE_PREFIXES = ['icon_', 'ui_', 'marker', 'sparkle', 'heart', 'shadow', 'cursor', 'fragment', 'letter', 'office', 'bus', 'photo'];
+export const NO_FADE_PREFIXES = ['icon_', 'ui_', 'fx_', 'marker', 'sparkle', 'heart', 'shadow', 'cursor', 'fragment', 'letter', 'office', 'bus', 'photo'];
 
 /** Miniatura de praça e mapa (para a tela do mapa). */
 export function mapThumb(kind: 'atelier' | 'praca' | 'floresta' | 'loja'): Pix {
