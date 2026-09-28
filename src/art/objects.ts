@@ -1,5 +1,5 @@
 import { P, darken, lighten, mix, type Hex } from './palette';
-import { Pix, rng } from './pix';
+import { Pix, rng, shadowPix } from './pix';
 import { tileGrass, tileCobble } from './tiles';
 
 /**
@@ -782,7 +782,7 @@ export function sparkle(frame: number): Pix {
   return p;
 }
 export function heart(): Pix { const p = new Pix(12, 12); p.disc(4, 4, 2, P.coral); p.disc(8, 4, 2, P.coral); p.triangle(6, 5, 1, P.coral); p.rect(2, 5, 8, 2, P.coral); p.rect(4, 7, 4, 2, P.coral); p.set(6, 9, P.coral); p.outline(P.outline); return p; }
-export function shadow(): Pix { const p = new Pix(24, 10); p.ellipse(12, 5, 10, 4, P.black, 70); return p; }
+export function shadow(): Pix { return shadowPix(32, 12, 110); }
 export function cursorTile(): Pix { const p = new Pix(32, 32); p.box(0, 0, 32, 32, P.white); p.box(1, 1, 30, 30, P.amber); return p; }
 export function cursorTileBad(): Pix { const p = new Pix(32, 32); p.box(0, 0, 32, 32, P.white); p.box(1, 1, 30, 30, P.red); return p; }
 export function fragmentBig(): Pix { const p = new Pix(24, 32); p.triangle(12, 2, 12, P.amber); p.rect(6, 14, 12, 8, P.amber); p.triangle(12, 28, 1, P.amberDark); for (let y = 22; y < 28; y++) p.hline(6 + (y - 22), 18 - (y - 22), y, P.amber); p.rect(9, 8, 2, 10, P.white); p.outline(P.outline); return p; }

@@ -195,11 +195,67 @@ export class WorldScene extends Phaser.Scene {
       case 's': return 'rock';
       case '.': return h % 3 === 0 ? 'floor2' : 'floor';
       case ':': return 'floorShop';
-      case '#': return this.mapId === 'loja' ? 'wallShop' : 'wall';
+      case '#': {
+        // Só a fileira que tem chão logo abaixo mostra a face da parede; o resto é a lateral.
+        const below = this.charAt(x, y + 1);
+        if (!this.def.floorChars.includes(below)) return 'wallSide';
+        return this.mapId === 'loja' ? 'wallShop' : 'wall';
+      }
       case 'W': return 'wallTop';
       case 'D': return this.def.indoor ? (this.mapId === 'loja' ? 'matShop' : 'matWood') : 'matPath';
       default: return 'grass';
     }
+  }
+
+  /** Classe de terreno usada para decidir as bordas (água afundada, grama sobre o caminho, meio-fio). */
+  private terrainClass(ch: string): 'water' | 'path' | 'cobble' | 'grass' | 'none' {
+    if (this.def.indoor) return 'none';
+    switch (ch) {
+      case 'w': return 'water';
+      case 'p': case 'D': return 'path';
+      case 'c': return 'cobble';
+      case 'g': case 'G': case 'f': case 't': case 's': case '-': case '|': return 'grass';
+      default: return 'none';
+    }
+  }
+
+  private addTileImage(key: string, x: number, y: number, depth: number): Phaser.GameObjects.Image {
+    const img = this.add.image(x * TILE, y * TILE, this.tex(`tile_${key}`)).setOrigin(0).setDepth(depth);
+    img.setData('base', `tile_${key}`);
+    this.tileImgs.push(img);
+    return img;
+  }
+
+  /** Sobrepõe bordas de transição conforme os vizinhos (auto-tiling simples). */
+  private addEdges(x: number, y: number, ch: string): void {
+    const me = this.terrainClass(ch);
+    if (me === 'none' || me === 'grass') return;
+    const cls = (dx: number, dy: number) => {
+      const nx = x + dx; const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= this.cols || ny >= this.rows) return me;
+      const c = this.terrainClass(this.charAt(nx, ny));
+      return c === 'none' ? me : c;
+    };
+    const N = cls(0, -1); const S = cls(0, 1); const E = cls(1, 0); const W = cls(-1, 0);
+    const edge = (n: typeof N) => {
+      if (me === 'water') return n !== 'water' ? 'edgeWater' : null;
+      if (me === 'path') return n === 'grass' ? 'edgePath' : null;
+      if (me === 'cobble') return n === 'grass' || n === 'path' ? 'edgeCobble' : null;
+      return null;
+    };
+    const sides: Array<[string, typeof N]> = [['N', N], ['S', S], ['E', E], ['W', W]];
+    for (const [side, n] of sides) { const k = edge(n); if (k) this.addTileImage(`${k}${side}`, x, y, 0.5); }
+    if (me === 'water' || me === 'path') {
+      const corner = me === 'water' ? 'cornerWater' : 'cornerPath';
+      const out = (n: typeof N) => (me === 'water' ? n !== 'water' : n === 'grass');
+      const diag: Array<[string, number, number, typeof N, typeof N]> = [['NE', 1, -1, N, E], ['NW', -1, -1, N, W], ['SE', 1, 1, S, E], ['SW', -1, 1, S, W]];
+      for (const [name, dx, dy, a, b] of diag) if (out(cls(dx, dy)) && !out(a) && !out(b)) this.addTileImage(`${corner}${name}`, x, y, 0.5);
+    }
+  }
+
+  /** Sombra suave no chão sob um objeto (largura em px, centrada em cx, com a base em baseY). */
+  private groundShadow(cx: number, baseY: number, w: number, h = Math.max(4, Math.round(w / 3)), alpha = 0.55): Phaser.GameObjects.Image {
+    return this.add.image(cx, baseY - 1, 'shadow').setDisplaySize(w, h).setDepth(0.9).setAlpha(alpha);
   }
 
   private buildTiles(): void {
@@ -209,14 +265,14 @@ export class WorldScene extends Phaser.Scene {
         const ch = this.charAt(x, y);
         const key = this.tileKeyFor(ch, x, y);
         if (key) {
-          const img = this.add.image(x * TILE, y * TILE, this.tex(`tile_${key}`)).setOrigin(0).setDepth(0);
-          img.setData('base', `tile_${key}`);
-          this.tileImgs.push(img);
+          const img = this.addTileImage(key, x, y, 0);
           if (ch === 'w') this.waterImgs.push(img);
+          this.addEdges(x, y, ch);
         }
         if (BLOCKING_CHARS.has(ch)) this.staticBlocked[y * this.cols + x] = 1;
         if (ch === 't') {
           const tkey = (x * 31 + y * 17) % 5 === 0 ? 'treeRound' : (x + y) % 2 ? 'tree' : 'tree2';
+          this.groundShadow(x * TILE + 16, y * TILE + 32, 40, 12, 0.5);
           const t = this.add.image(x * TILE + 16, y * TILE + 32, this.tex(tkey)).setOrigin(0.5, 1).setDepth(y * TILE + 32);
           t.setData('base', tkey);
           this.treeImgs.push(t);
@@ -256,6 +312,11 @@ export class WorldScene extends Phaser.Scene {
         p.visible = vis;
         img.setVisible(vis);
         if (vis) this.blockRects(obj.blocks, 1);
+        if (!obj.flat && img.displayWidth <= 96) {
+          const sh = this.groundShadow(img.x + img.displayWidth / 2, img.y + img.displayHeight, img.displayWidth * 0.9);
+          sh.setVisible(vis);
+          img.setData('shadow', sh);
+        }
         continue;
       }
       if (obj.type === 'interact') {
@@ -272,11 +333,17 @@ export class WorldScene extends Phaser.Scene {
         const vis = this.condVisible(obj.showWhen, obj.hideWhen);
         img.setVisible(vis);
         if (vis) this.blockRects(obj.blocks, 1); else it.removed = true;
+        if (!obj.flat && obj.kind !== 'fountain') {
+          const sh = this.groundShadow(img.x + img.displayWidth / 2, img.y + img.displayHeight, img.displayWidth * 0.85);
+          sh.setVisible(vis);
+          img.setData('shadow', sh);
+        }
         if (obj.kind === 'fountain' && game.flag('praca_restored')) { img.setTexture('fountainFlow0'); img.setData('base', 'fountainFlow0'); }
         continue;
       }
       if (obj.type === 'node') {
         const texKey = this.nodeTexture(obj.material);
+        this.groundShadow(obj.x * TILE + 16, obj.y * TILE + 32, 26, 8, 0.45);
         const img = this.add.image(obj.x * TILE + 16, obj.y * TILE + 32, this.tex(texKey)).setOrigin(0.5, 1).setDepth(obj.y * TILE + 32);
         img.setData('base', texKey);
         const bar = this.add.graphics().setDepth(4000).setVisible(false);
@@ -292,6 +359,9 @@ export class WorldScene extends Phaser.Scene {
         const vis = this.condVisible(obj.showWhen, obj.hideWhen);
         n.visible = vis;
         spr.setVisible(vis);
+        const sh = this.groundShadow(spr.x, spr.y + 1, 22, 8, 0.5);
+        sh.setVisible(vis);
+        spr.setData('shadow', sh);
         if (vis) this.blockRects([{ x: obj.x, y: obj.y, w: 1, h: 1 }], 1);
       }
     }
@@ -653,6 +723,8 @@ export class WorldScene extends Phaser.Scene {
     it.removed = true;
     this.blockRects(it.obj.blocks, -1);
     game.setFlag(`removed_${this.mapId}_${it.obj.id}`);
+    const sh = it.sprite.getData('shadow') as Phaser.GameObjects.Image | undefined;
+    if (sh) this.tweens.add({ targets: sh, alpha: 0, duration: 220 });
     this.tweens.add({ targets: it.sprite, alpha: 0, scaleX: 0.6, scaleY: 0.6, duration: 220, onComplete: () => it.sprite.setVisible(false) });
     if (this.target?.ref === it) { this.clearTargetTint(); this.target = null; }
   }
@@ -761,6 +833,7 @@ export class WorldScene extends Phaser.Scene {
       if (vis === p.visible) continue;
       p.visible = vis;
       this.blockRects(p.obj.blocks, vis ? 1 : -1);
+      (p.sprite.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(vis);
       if (vis) {
         p.sprite.setVisible(true).setAlpha(0);
         this.tweens.add({ targets: p.sprite, alpha: 1, duration: animate ? 500 : 0 });
@@ -775,14 +848,15 @@ export class WorldScene extends Phaser.Scene {
       n.visible = vis;
       this.blockRects([{ x: n.obj.x, y: n.obj.y, w: 1, h: 1 }], vis ? 1 : -1);
       n.sprite.setVisible(vis);
+      (n.sprite.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(vis);
       if (vis && animate) { n.sprite.setAlpha(0); this.tweens.add({ targets: n.sprite, alpha: 1, duration: 500 }); this.sparkleAt(n.sprite.x, n.sprite.y - 20, 5); }
     }
     for (const it of this.interacts) {
       if (it.removed && !it.sprite.visible && !game.flag(`removed_${this.mapId}_${it.obj.id}`)) {
         const vis = this.condVisible(it.obj.showWhen, it.obj.hideWhen);
-        if (vis) { it.removed = false; it.sprite.setVisible(true).setAlpha(1); this.blockRects(it.obj.blocks, 1); if (animate) this.sparkleAt(it.sprite.x + 8, it.sprite.y + 8, 4); }
+        if (vis) { it.removed = false; it.sprite.setVisible(true).setAlpha(1); (it.sprite.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(true); this.blockRects(it.obj.blocks, 1); if (animate) this.sparkleAt(it.sprite.x + 8, it.sprite.y + 8, 4); }
       } else if (!it.removed && it.obj.hideWhen && game.flag(it.obj.hideWhen)) {
-        it.removed = true; it.sprite.setVisible(false); this.blockRects(it.obj.blocks, -1);
+        it.removed = true; it.sprite.setVisible(false); (it.sprite.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(false); this.blockRects(it.obj.blocks, -1);
       }
       if (it.obj.kind === 'sign' && game.flag('praca_restored') && !it.done) { it.done = true; it.sprite.setTexture('signOk'); }
     }
