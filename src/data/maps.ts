@@ -17,6 +17,8 @@ export interface PropObj {
   px?: number; py?: number;
   /** Retângulos bloqueados em tiles (relativos ao mapa). */
   blocks?: Array<{ x: number; y: number; w: number; h: number }>;
+  /** Retângulos bloqueados em pixels, relativos ao canto superior esquerdo do sprite (formas que não cabem na grade). */
+  pxBlocks?: Array<{ x: number; y: number; w: number; h: number }>;
   hideWhen?: string;
   showWhen?: string;
   /** Profundidade fixa (para objetos deitados no chão, como folhas). */
@@ -33,6 +35,7 @@ export interface InteractObj {
   texDone?: string;
   px?: number; py?: number;
   blocks?: Array<{ x: number; y: number; w: number; h: number }>;
+  pxBlocks?: Array<{ x: number; y: number; w: number; h: number }>;
   /** Contador incrementado ao remover (caixas/teias). */
   counter?: string;
   flat?: boolean;
@@ -146,11 +149,12 @@ export const MAPS: Record<MapId, MapDef> = {
       { type: 'prop', id: 'houseA', x: 9, y: 0, py: 48, tex: 'houseA', texRestored: 'houseANew', blocks: [{ x: 9, y: 2, w: 4, h: 3 }] },
       { type: 'prop', id: 'houseB', x: 19, y: 11, py: -16, tex: 'houseB', texRestored: 'houseBNew', blocks: [{ x: 19, y: 12, w: 4, h: 2 }] },
       { type: 'prop', id: 'houseC', x: 1, y: 11, py: -16, tex: 'houseC', texRestored: 'houseCNew', blocks: [{ x: 1, y: 12, w: 4, h: 2 }] },
-      { type: 'interact', id: 'fountain', kind: 'fountain', x: 10, y: 7, tex: 'fountainDry', blocks: [{ x: 10, y: 7, w: 3, h: 3 }] },
-      { type: 'prop', id: 'lamp1', x: 8, y: 6, py: -32, tex: 'lamppost', px: 8, blocks: [{ x: 8, y: 6, w: 1, h: 1 }] },
-      { type: 'prop', id: 'lamp2', x: 14, y: 6, py: -32, tex: 'lamppost', px: 8, blocks: [{ x: 14, y: 6, w: 1, h: 1 }] },
-      { type: 'prop', id: 'lamp3', x: 8, y: 11, py: -32, tex: 'lamppost', px: 8, blocks: [{ x: 8, y: 11, w: 1, h: 1 }] },
-      { type: 'prop', id: 'lamp4', x: 14, y: 11, py: -32, tex: 'lamppost', px: 8, blocks: [{ x: 14, y: 11, w: 1, h: 1 }] },
+      { type: 'interact', id: 'fountain', kind: 'fountain', x: 10, y: 7, tex: 'fountainDry', pxBlocks: [{ x: 22, y: 50, w: 52, h: 4 }, { x: 13, y: 54, w: 70, h: 34 }, { x: 4, y: 62, w: 88, h: 20 }] },
+      // postes: só a base (últimos 10 px do sprite de 16×64) ocupa o chão
+      { type: 'prop', id: 'lamp1', x: 8, y: 6, py: -32, tex: 'lamppost', px: 8, pxBlocks: [{ x: 2, y: 54, w: 12, h: 10 }] },
+      { type: 'prop', id: 'lamp2', x: 14, y: 6, py: -32, tex: 'lamppost', px: 8, pxBlocks: [{ x: 2, y: 54, w: 12, h: 10 }] },
+      { type: 'prop', id: 'lamp3', x: 8, y: 11, py: -32, tex: 'lamppost', px: 8, pxBlocks: [{ x: 2, y: 54, w: 12, h: 10 }] },
+      { type: 'prop', id: 'lamp4', x: 14, y: 11, py: -32, tex: 'lamppost', px: 8, pxBlocks: [{ x: 2, y: 54, w: 12, h: 10 }] },
       { type: 'interact', id: 'sign', kind: 'sign', x: 12, y: 14, py: -16, tex: 'signBroken', texDone: 'signOk', blocks: [{ x: 12, y: 14, w: 1, h: 1 }] },
       { type: 'prop', id: 'leaves1', x: 7, y: 8, tex: 'leavesPile', flat: true, hideWhen: 'praca_restored' },
       { type: 'prop', id: 'leaves2', x: 15, y: 9, tex: 'leavesPile2', flat: true, hideWhen: 'praca_restored' },
@@ -206,7 +210,7 @@ export const MAPS: Record<MapId, MapDef> = {
     objects: [
       { type: 'door', x: 0, y: 8, w: 1, h: 2, to: 'praca', spawn: { x: 22, y: 8 }, dir: 'west', label: 'Voltar à praça' },
       { type: 'interact', id: 'log', kind: 'log', x: 13, y: 3, px: -16, tex: 'fallenLog', blocks: [{ x: 13, y: 3, w: 1, h: 1 }], hideWhen: 'forest_path_open' },
-      { type: 'interact', id: 'shrine', kind: 'shrine', x: 17, y: 1, tex: 'shrine', blocks: [{ x: 17, y: 1, w: 2, h: 2 }] },
+      { type: 'interact', id: 'shrine', kind: 'shrine', x: 17, y: 1, tex: 'shrine', pxBlocks: [{ x: 16, y: 43, w: 32, h: 18 }, { x: 7, y: 47, w: 50, h: 11 }] },
       { type: 'node', id: 'f_wood1', x: 3, y: 2, material: 'madeira', amount: [2, 3] },
       { type: 'node', id: 'f_wood2', x: 10, y: 4, material: 'madeira', amount: [2, 3] },
       { type: 'node', id: 'f_wood3', x: 4, y: 12, material: 'madeira', amount: [2, 3] },

@@ -175,3 +175,10 @@ Para regerar: `npm run build && bash tools/serve.sh && node tools/peek.mjs && no
 
 - O `vite preview` serve o `index.html` em cache; depois de cada `build` é preciso reiniciá-lo (`tools/serve.sh`), senão os testes rodam o bundle antigo.
 - O Desbotamento continua automático: toda textura nova ganha a variante `__faded`, exceto UI, ícones e efeitos (`NO_FADE_PREFIXES`).
+
+## 11. Ajustes de jogabilidade (após o upgrade visual)
+
+- **Colisão em pixels** (`pxBlocks` em props/interações, `src/data/maps.ts`): retângulos em pixels relativos ao sprite, somados à grade de tiles em `WorldScene.fits()`. Usados na fonte (oval do tanque), no altar (base) e nos postes (só a base de 10 px). Resolve paredes invisíveis atrás de objetos grandes e cantos quadrados em formas redondas. `blockObj()` liga/desliga os dois tipos de bloqueio junto com a visibilidade do objeto.
+- **Mobílias penduradas** (`hang: 'wall' | 'window'` em `src/data/items.ts`): quadro vai no próprio tile da parede de fundo (`#` com chão logo abaixo, sem janela); cortina só em tiles com prop/interação de textura `window*`. Não ocupam chão, não bloqueiam e não giram. Prateleira e vitrine continuam no chão encostadas na parede (`wall: true`).
+- **Modo decoração**: WASD/setas/joystick movem o personagem (não o cursor); o cursor acompanha o tile à frente dele e o mouse/toque apontam diretamente. Entrar numa porta sai do modo decoração.
+- **Posição exata no save** (`px`/`py` em `SaveData`): "Continuar" restaura a posição em pixels, não só o tile. `WorldScene.unstickPlayer()` ainda empurra o personagem para o ponto livre mais próximo se ele nascer dentro de um bloqueio (ex.: NPC que aparece no tile dele após a restauração da praça). Isso corrigia o personagem preso ao voltar do título depois de zerar o jogo.

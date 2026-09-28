@@ -681,7 +681,7 @@ export class UIScene extends Phaser.Scene {
     if (item) this.decorHud.push(this.add.image(bx + 22 * s, by + bh / 2, this.world.furnTexture(item, this.world.decorInfo.rot)).setScale(s * 0.9).setDepth(601));
     const title = item ? `Decorando: ${ITEMS[item].name} (×${game.count(item)})` : 'Modo decoração — escolha uma mobília na mochila';
     this.decorHud.push(this.add.text(bx + (item ? 40 : 14) * s, by + 10 * s, title, textStyle(11 * s, UI.title)).setDepth(601));
-    const hint = touch ? 'Toque no chão para mover o cursor; toque de novo para colocar/pegar.' : 'E/clique: colocar ou pegar · R: girar · WASD/mouse: mover · F/Esc: sair';
+    const hint = touch ? 'Joystick: andar · toque no chão: apontar; toque de novo para colocar/pegar.' : 'WASD: andar · mouse: apontar · E/clique: colocar ou pegar · R: girar · F/Esc: sair';
     this.decorHud.push(this.add.text(bx + (item ? 40 : 14) * s, by + 27 * s, hint, textStyle(8.5 * s, UI.textDim, { wordWrap: { width: bw - (item ? 150 : 124) * s } })).setDepth(601));
     this.decorHud.push(new Button(this, bx + bw - 60 * s, by + bh / 2, 'Mochila', () => this.openPanel('inventory'), { width: 92 * s, height: 28 * s, fontSize: 10 * s }).setDepth(601));
     // requisitos da loja (missão 7)

@@ -184,7 +184,7 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       if (!game.data.introSeen) this.scene.start('IntroScene');
-      else this.scene.start('WorldScene', { map: game.data.map, x: game.data.x, y: game.data.y });
+      else this.scene.start('WorldScene', { map: game.data.map, x: game.data.x, y: game.data.y, px: game.data.px, py: game.data.py });
     });
   }
 }
