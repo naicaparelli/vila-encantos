@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { isTouchDevice } from '../config';
-import { ITEMS, MATERIAL_ORDER } from '../data/items';
+import { ITEMS, MATERIAL_ORDER, ATTRIBUTE_NAMES, type ItemAttrs } from '../data/items';
 import { RECIPES, STATION_NAMES, type StationId } from '../data/recipes';
 import { MAPS, MAP_ORDER, type MapDef } from '../data/maps';
 import { QUESTS, QUEST_ORDER, type QuestDef } from '../data/quests';
@@ -69,9 +69,9 @@ export class UIScene extends Phaser.Scene {
 
     const on = (ev: string, fn: (...a: unknown[]) => void) => { game.on(ev, fn); this.stateHandlers.push([ev, fn]); };
     on('toast', (text, icon) => this.toast(text as string, icon as string | undefined));
-    on('quest-started', (q) => this.questBanner('Nova missão', q as QuestDef, true));
-    on('quest-completed', (q) => { sfx('quest'); this.questBanner('Missão concluída', q as QuestDef, false); });
-    on('recipes-unlocked', (ids) => this.toast(`Novas receitas: ${(ids as string[]).map((i) => ITEMS[RECIPES[i].result].name).join(', ')}`));
+    on('quest-started', (q) => this.questBanner('New quest', q as QuestDef, true));
+    on('quest-completed', (q) => { sfx('quest'); this.questBanner('Quest complete', q as QuestDef, false); });
+    on('recipes-unlocked', (ids) => this.toast(`New recipes: ${(ids as string[]).map((i) => ITEMS[RECIPES[i].result].name).join(', ')}`));
     on('changed', () => { this.updateTracker(); if (this.panelKind === 'crafting') this.rebuildPanel(); if (this.panelKind === 'inventory') this.rebuildPanel(); });
     this.world.events.on('map-changed', this.onMapChanged, this);
 
@@ -103,8 +103,11 @@ export class UIScene extends Phaser.Scene {
     this.hudObjs.forEach((o) => o.destroy());
     this.hudObjs = [];
     this.trackerBg = null; this.promptBg = null;
-    const { width: w } = this.scale;
+    const { width: w, height: h } = this.scale;
     const s = uiScale(this);
+
+    // vinheta suave nos cantos da tela (abaixo de todo o HUD)
+    this.hudObjs.push(this.add.image(0, 0, 'fx_vignette').setOrigin(0).setDisplaySize(w, h).setDepth(1).setAlpha(0.6));
 
     this.trackerTitle = this.add.text(18 * s, 16 * s, '', textStyle(11 * s, UI.title)).setDepth(11);
     this.trackerObj = this.add.text(18 * s, 31 * s, '', textStyle(10 * s, UI.text, { wordWrap: { width: Math.min(250 * s, w * 0.5) - 20 * s } })).setDepth(11);
@@ -115,8 +118,8 @@ export class UIScene extends Phaser.Scene {
       const b = new RoundButton(this, w - 26 * s - i * 48 * s, 26 * s, icon, 19 * s, () => this.togglePanel(kind));
       this.hudObjs.push(b);
     });
-    const mute = new Button(this, w - 26 * s - 3 * 48 * s - 14 * s, 26 * s, music.muted ? 'Som off' : 'Som on', () => {
-      const m = music.toggleMute(); mute.setText(m ? 'Som off' : 'Som on');
+    const mute = new Button(this, w - 26 * s - 3 * 48 * s - 14 * s, 26 * s, music.muted ? 'Sound off' : 'Sound on', () => {
+      const m = music.toggleMute(); mute.setText(m ? 'Sound off' : 'Sound on');
     }, { width: 66 * s, height: 26 * s, fontSize: 9 * s });
     this.hudObjs.push(mute);
 
@@ -144,8 +147,8 @@ export class UIScene extends Phaser.Scene {
   private updateTrackerText(): void {
     const q = game.currentQuest;
     if (!q) {
-      if (!game.flag('notebook_seen')) { this.trackerTitle.setText('Começar'); this.trackerObj.setText('Encontre o Caderno dos Encantos no ateliê.'); }
-      else if (game.questDone('q8')) { this.trackerTitle.setText('Capítulo 1 concluído'); this.trackerObj.setText('Decore livremente. O Bosque dos Sussurros espera.'); }
+      if (!game.flag('notebook_seen')) { this.trackerTitle.setText('Getting started'); this.trackerObj.setText('Find the Journal of Wonders in the workshop.'); }
+      else if (game.questDone('q8')) { this.trackerTitle.setText('Chapter 1 complete'); this.trackerObj.setText('Decorate freely. The Whispering Woods await.'); }
       else { this.trackerTitle.setText(''); this.trackerObj.setText(''); }
       return;
     }
@@ -155,7 +158,7 @@ export class UIScene extends Phaser.Scene {
       const st = pending.check(game);
       const prog = st.max !== undefined ? ` (${st.cur}/${st.max})` : '';
       this.trackerObj.setText(`• ${pending.text}${prog}`);
-    } else this.trackerObj.setText(q.turnIn ? `• Fale com ${q.turnIn === 'amora' ? 'Amora' : q.turnIn}` : '• Concluído');
+    } else this.trackerObj.setText(q.turnIn ? `• Talk to ${q.turnIn === 'amora' ? 'Amora' : q.turnIn}` : '• Complete');
   }
 
   setPrompt(text: string): void {
@@ -233,16 +236,16 @@ export class UIScene extends Phaser.Scene {
     this.input.on('pointerupoutside', release);
     this.touchObjs.push(base, knob, zone);
 
-    const act = new RoundButton(this, w - 24 * s - 30 * s, h - 24 * s - 30 * s, 'ui_hand', 30 * s, () => this.world.queueAction(), undefined, 'Ação');
+    const act = new RoundButton(this, w - 24 * s - 30 * s, h - 24 * s - 30 * s, 'ui_hand', 30 * s, () => this.world.queueAction(), undefined, 'Action');
     act.setDepth(803);
     this.touchObjs.push(act);
     this.runBtn = new RoundButton(this, w - 24 * s - 30 * s - 78 * s, h - 24 * s - 22 * s, 'ui_run', 22 * s, () => {
       this.world.mobile.run = !this.world.mobile.run;
-      this.runBtn?.setCaption(this.world.mobile.run ? 'Correndo' : 'Correr');
-    }, undefined, 'Correr');
+      this.runBtn?.setCaption(this.world.mobile.run ? 'Running' : 'Run');
+    }, undefined, 'Run');
     this.runBtn.setDepth(803);
     this.touchObjs.push(this.runBtn);
-    this.decorBtn = new RoundButton(this, w - 24 * s - 30 * s, h - 24 * s - 30 * s - 78 * s, 'ui_decor', 22 * s, () => this.world.toggleDecor(), undefined, 'Decorar');
+    this.decorBtn = new RoundButton(this, w - 24 * s - 30 * s, h - 24 * s - 30 * s - 78 * s, 'ui_decor', 22 * s, () => this.world.toggleDecor(), undefined, 'Decorate');
     this.decorBtn.setDepth(803);
     this.decorBtn.setVisible(this.world.isDecoratable());
     this.touchObjs.push(this.decorBtn);
@@ -308,7 +311,7 @@ export class UIScene extends Phaser.Scene {
   /** Chave do retrato para o nome de quem fala (NPC ou o jogador). */
   private portraitFor(speaker: string): string | null {
     if (!speaker) return null;
-    if (speaker === 'Você') return `portrait_player_${game.data.species}`;
+    if (speaker === 'You') return `portrait_player_${game.data.species}`;
     const id = Object.entries(NPC_NAMES).find(([, name]) => name === speaker)?.[0];
     if (id && this.textures.exists(`portrait_npc_${id}`)) return `portrait_npc_${id}`;
     return null;
@@ -440,7 +443,7 @@ export class UIScene extends Phaser.Scene {
     const dim = this.add.graphics(); dim.fillStyle(0x1d1418, 0.45); dim.fillRect(0, 0, w, h);
     c.add(dim);
     c.add(drawPanel(this, px, py, pw, ph));
-    const titles: Record<PanelKind, string> = { inventory: 'Mochila', notebook: 'Caderno dos Encantos', map: 'Mapa da vila', crafting: STATION_NAMES[this.craftStation] };
+    const titles: Record<PanelKind, string> = { inventory: 'Backpack', notebook: 'Journal of Wonders', map: 'Village map', crafting: STATION_NAMES[this.craftStation] };
     const titleIcon: Record<PanelKind, string> = { inventory: 'ui_bag', notebook: 'ui_book', map: 'ui_map', crafting: 'icon_madeira' };
     c.add(this.add.image(px + 24 * s, py + 22 * s, titleIcon[kind]).setScale(kind === 'crafting' ? s * 1.4 : s));
     c.add(this.add.text(px + 40 * s, py + 12 * s, titles[kind], textStyle(15 * s, UI.title)));
@@ -471,7 +474,7 @@ export class UIScene extends Phaser.Scene {
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => { if (dragY !== null && p.isDown) { offset += p.y - dragY; dragY = p.y; apply(); } });
     this.input.on('pointerup', () => { dragY = null; });
     this.input.on('wheel', (_p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => { if (this.panel === parent) { offset -= dy * 0.5; apply(); } });
-    const hint = this.add.text(area.x + area.w - 4, area.y + area.h - 2, '▼ role', textStyle(8 * uiScale(this), UI.textDim)).setOrigin(1, 1);
+    const hint = this.add.text(area.x + area.w - 4, area.y + area.h - 2, '▼ scroll', textStyle(8 * uiScale(this), UI.textDim)).setOrigin(1, 1);
     parent.add(hint);
     return content;
   }
@@ -486,7 +489,7 @@ export class UIScene extends Phaser.Scene {
     const descH = 74 * s;
     const gridArea = { ...area, h: area.h - descH };
     const content = this.scrollArea(c, gridArea, rows * slot + 4);
-    if (entries.length === 0) content.add(this.add.text(8, 8, 'A mochila está vazia. Colete materiais na praça e na floresta.', textStyle(11 * s, UI.textDim)));
+    if (entries.length === 0) content.add(this.add.text(8, 8, 'Your backpack is empty. Gather materials in the square and forest.', textStyle(11 * s, UI.textDim)));
     entries.forEach(([id, n], i) => {
       const item = ITEMS[id];
       const x = (i % cols) * slot + slot / 2;
@@ -494,7 +497,7 @@ export class UIScene extends Phaser.Scene {
       const sel = this.selectedInv === id;
       content.add(new PixelPanel(this, x - slot / 2 + 2, y - slot / 2 + 2, slot - 4, slot - 4, sel ? 'ui_slot_sel' : 'ui_slot'));
       const scale = item.kind === 'furniture' ? s * 1.1 : s * 2;
-      content.add(this.add.image(x, y - 3 * s, item.icon).setScale(scale));
+      content.add(this.fitIcon(this.add.image(x, y - 3 * s, item.icon).setScale(scale), slot - 12 * s));
       const count = this.add.text(x + slot / 2 - 7 * s, y + slot / 2 - 6 * s, `${n}`, hudStyle(10 * s)).setOrigin(1, 1);
       content.add(count);
       const z = this.add.zone(x, y, slot - 4, slot - 4).setInteractive({ useHandCursor: true });
@@ -510,29 +513,29 @@ export class UIScene extends Phaser.Scene {
     c.add(new PixelPanel(this, area.x, dy - 6 * s, area.w, descH - 4 * s, 'ui_panel_inset'));
     const sel = this.selectedInv && game.count(this.selectedInv) > 0 ? ITEMS[this.selectedInv] : null;
     if (sel) {
-      c.add(this.add.image(area.x + 22 * s, dy + 20 * s, sel.icon).setScale(sel.kind === 'furniture' ? s : s * 1.6));
+      c.add(this.fitIcon(this.add.image(area.x + 22 * s, dy + 20 * s, sel.icon).setScale(sel.kind === 'furniture' ? s : s * 1.6), 36 * s));
       c.add(this.add.text(area.x + 42 * s, dy + 2 * s, sel.name, textStyle(12 * s, UI.title)));
-      const attrs = sel.attrs ? Object.entries(sel.attrs).map(([k, v]) => `${k} +${v}`).join(' · ') : '';
+      const attrs = sel.attrs ? Object.entries(sel.attrs).map(([k, v]) => `${ATTRIBUTE_NAMES[k as keyof ItemAttrs]} +${v}`).join(' · ') : '';
       c.add(this.add.text(area.x + 42 * s, dy + 18 * s, sel.desc + (attrs ? `\n${attrs}` : ''), textStyle(10 * s, UI.textDim, { wordWrap: { width: area.w - 190 * s } })));
       if (sel.kind === 'furniture') {
         const can = this.world.isDecoratable();
-        c.add(new Button(this, area.x + area.w - 70 * s, dy + 22 * s, 'Decorar', () => this.startDecorWith(sel.id), { width: 116 * s, height: 30 * s, kind: 'primary', disabled: !can }));
-        if (!can) c.add(this.add.text(area.x + area.w - 70 * s, dy + 42 * s, 'não dá para decorar aqui', textStyle(8 * s, UI.textDim)).setOrigin(0.5, 0));
+        c.add(new Button(this, area.x + area.w - 70 * s, dy + 22 * s, 'Decorate', () => this.startDecorWith(sel.id), { width: 116 * s, height: 30 * s, kind: 'primary', disabled: !can }));
+        if (!can) c.add(this.add.text(area.x + area.w - 70 * s, dy + 42 * s, 'can\'t decorate here', textStyle(8 * s, UI.textDim)).setOrigin(0.5, 0));
       }
     } else {
-      c.add(this.add.text(area.x + 10 * s, dy + 4 * s, 'Toque em um item para ver detalhes. Toque duas vezes em uma mobília para decorar.', textStyle(10 * s, UI.textDim, { wordWrap: { width: area.w - 20 * s } })));
+      c.add(this.add.text(area.x + 10 * s, dy + 4 * s, 'Tap an item for details. Double-tap furniture to decorate.', textStyle(10 * s, UI.textDim, { wordWrap: { width: area.w - 20 * s } })));
     }
   }
 
   private startDecorWith(id: string): void {
-    if (!this.world.isDecoratable()) { this.toast('Este lugar não pode ser decorado (ainda).'); return; }
+    if (!this.world.isDecoratable()) { this.toast('You can\'t decorate this place (yet).'); return; }
     this.closePanel();
     if (!this.world.decorMode) this.world.enterDecor(id);
     else this.world.setDecorItem(id);
   }
 
   private buildNotebook(c: Phaser.GameObjects.Container, area: { x: number; y: number; w: number; h: number }, s: number): void {
-    const tabs = ['Missões', 'Receitas', 'Materiais', 'Memórias', 'Encantos'];
+    const tabs = ['Quests', 'Recipes', 'Materials', 'Memories', 'Wonders'];
     const tabW = Math.min(100 * s, area.w / tabs.length);
     tabs.forEach((t, i) => {
       const b = new Button(this, area.x + tabW * i + tabW / 2, area.y + 13 * s, t, () => { this.notebookTab = i; sfx('select'); this.rebuildPanel(); }, { width: tabW - 4, height: 26 * s, fontSize: 10 * s, kind: this.notebookTab === i ? 'primary' : 'wood' });
@@ -545,7 +548,7 @@ export class UIScene extends Phaser.Scene {
     const check = (done: boolean) => (done ? 'ui_check_on' : 'ui_check_off');
     if (tab === 0) {
       const active = game.activeQuests;
-      if (active.length === 0 && game.data.doneQuests.length === 0) lines.push({ text: 'Nenhuma missão ainda. O caderno espera o seu primeiro passo.', color: UI.textDim });
+      if (active.length === 0 && game.data.doneQuests.length === 0) lines.push({ text: 'No quests yet. The journal awaits your first step.', color: UI.textDim });
       for (const q of active) {
         lines.push({ text: `${q.order}. ${q.title}`, color: UI.title, size: 13, icon: 'markerExclaim' });
         lines.push({ text: `"${q.intro}"`, color: UI.lilac, size: 10 });
@@ -555,17 +558,17 @@ export class UIScene extends Phaser.Scene {
           lines.push({ text: `${o.text}${prog}`, color: st.done ? UI.good : UI.text, icon: check(st.done) });
           if (!st.done && o.hint) lines.push({ text: `     ${o.hint}`, color: UI.textDim, size: 9 });
         }
-        if (q.turnIn && q.objectives.every((o) => o.check(game).done)) lines.push({ text: `→ Fale com ${q.turnIn === 'amora' ? 'Amora' : q.turnIn} para concluir.`, color: UI.title });
+        if (q.turnIn && q.objectives.every((o) => o.check(game).done)) lines.push({ text: `→ Talk to ${q.turnIn === 'amora' ? 'Amora' : q.turnIn} to finish.`, color: UI.title });
         lines.push({ text: '' });
       }
       const done = QUEST_ORDER.filter((id) => game.questDone(id));
       if (done.length) {
-        lines.push({ text: 'Concluídas', color: UI.textDim, size: 11 });
+        lines.push({ text: 'Completed', color: UI.textDim, size: 11 });
         for (const id of done) lines.push({ text: `${QUESTS[id].order}. ${QUESTS[id].title}`, color: UI.textDim, icon: 'ui_check_on' });
       }
     } else if (tab === 1) {
       const known = Object.values(RECIPES).filter((r) => game.recipeKnown(r.id));
-      if (known.length === 0) lines.push({ text: 'Nenhuma receita ainda. Conserte a bancada de marcenaria.', color: UI.textDim });
+      if (known.length === 0) lines.push({ text: 'No recipes yet. Repair the woodworking bench.', color: UI.textDim });
       for (const st of ['marcenaria', 'costura', 'pintura'] as StationId[]) {
         const rs = known.filter((r) => r.station === st);
         if (!rs.length) continue;
@@ -578,13 +581,13 @@ export class UIScene extends Phaser.Scene {
       }
     } else if (tab === 2) {
       const seen = MATERIAL_ORDER.filter((m) => game.data.materialsSeen.includes(m));
-      if (!seen.length) lines.push({ text: 'Você ainda não coletou nenhum material.', color: UI.textDim });
+      if (!seen.length) lines.push({ text: 'You haven\'t gathered any materials yet.', color: UI.textDim });
       for (const m of seen) { lines.push({ text: ITEMS[m].name, color: UI.title, icon: ITEMS[m].icon }); lines.push({ text: ITEMS[m].desc, color: UI.textDim, size: 10 }); }
     } else if (tab === 3) {
-      if (!game.data.memories.length) lines.push({ text: 'As memórias da vila ainda estão escondidas.', color: UI.textDim });
-      game.data.memories.forEach((m, i) => { lines.push({ text: `Fragmento ${i + 1}`, color: UI.title, icon: 'icon_fragmento' }); lines.push({ text: m, size: 10 }); lines.push({ text: '' }); });
+      if (!game.data.memories.length) lines.push({ text: 'The village\'s memories are still hidden.', color: UI.textDim });
+      game.data.memories.forEach((m, i) => { lines.push({ text: `Fragment ${i + 1}`, color: UI.title, icon: 'icon_fragmento' }); lines.push({ text: m, size: 10 }); lines.push({ text: '' }); });
     } else {
-      if (!game.data.encantos.length) lines.push({ text: 'Nenhum Pequeno Encanto recuperado. Dizem que eles moram na fonte.', color: UI.textDim });
+      if (!game.data.encantos.length) lines.push({ text: 'No Little Wonders recovered. They say they live in the fountain.', color: UI.textDim });
       for (const e of game.data.encantos) lines.push({ text: e, color: UI.title, size: 13, icon: 'sparkle0' });
     }
     // renderiza linhas
@@ -595,7 +598,7 @@ export class UIScene extends Phaser.Scene {
       const t = this.add.text(l.icon ? 30 * s : 10 * s, y, l.text, textStyle(size, l.color ?? UI.text, { wordWrap: { width: body.w - 44 * s } }));
       if (l.icon) {
         const sc = l.icon.startsWith('furn') ? s * 0.5 : l.icon.startsWith('ui_check') ? s : s;
-        objs.push(this.add.image(18 * s, y + t.height / 2, l.icon).setScale(sc));
+        objs.push(this.fitIcon(this.add.image(18 * s, y + t.height / 2, l.icon).setScale(sc), 22 * s));
       }
       objs.push(t);
       y += Math.max(t.height, size * 1.2) + 4 * s;
@@ -630,21 +633,21 @@ export class UIScene extends Phaser.Scene {
         this.tweens.add({ targets: m, y: m.y - 4 * s, duration: 400, yoyo: true, repeat: -1 });
       }
     }
-    c.add(this.add.text(area.x + area.w / 2, area.y + area.h - 8 * s, 'Você está em: ' + this.world.def.name + '   ·   ✦ = restaurado', textStyle(9 * s, UI.textDim)).setOrigin(0.5, 1));
+    c.add(this.add.text(area.x + area.w / 2, area.y + area.h - 8 * s, 'You are in: ' + this.world.def.name + '   ·   ✦ = restored', textStyle(9 * s, UI.textDim)).setOrigin(0.5, 1));
   }
 
   private buildCrafting(c: Phaser.GameObjects.Container, area: { x: number; y: number; w: number; h: number }, s: number): void {
     const recipes = Object.values(RECIPES).filter((r) => r.station === this.craftStation && game.recipeKnown(r.id));
     const rowH = 54 * s;
     const content = this.scrollArea(c, area, recipes.length * rowH + 8);
-    if (!recipes.length) content.add(this.add.text(8, 8, 'Nenhuma receita conhecida para esta mesa.', textStyle(11 * s, UI.textDim)));
+    if (!recipes.length) content.add(this.add.text(8, 8, 'No known recipes for this table.', textStyle(11 * s, UI.textDim)));
     recipes.forEach((r, i) => {
       const y = i * rowH;
       const item = ITEMS[r.result];
       const can = game.canCraft(r.id);
       content.add(new PixelPanel(this, 0, y + 2, area.w, rowH - 4, 'ui_panel_inset'));
       content.add(new PixelPanel(this, 6 * s, y + rowH / 2 - 20 * s, 40 * s, 40 * s, 'ui_slot'));
-      content.add(this.add.image(26 * s, y + rowH / 2, item.icon).setScale(s * 1.1));
+      content.add(this.fitIcon(this.add.image(26 * s, y + rowH / 2, item.icon).setScale(s * 1.1), 34 * s));
       content.add(this.add.text(54 * s, y + 9 * s, `${item.name}${r.count > 1 ? ` ×${r.count}` : ''}`, textStyle(12 * s, can ? UI.text : UI.textDim)));
       let ix = 54 * s;
       for (const [id, n] of Object.entries(r.ingredients)) {
@@ -654,9 +657,9 @@ export class UIScene extends Phaser.Scene {
         content.add(t);
         ix += t.width + 26 * s;
       }
-      const attrs = item.attrs ? Object.entries(item.attrs).map(([k, v]) => `${k} +${v}`).join(' ') : '';
+      const attrs = item.attrs ? Object.entries(item.attrs).map(([k, v]) => `${ATTRIBUTE_NAMES[k as keyof ItemAttrs]} +${v}`).join(' ') : '';
       if (attrs) content.add(this.add.text(area.w - 110 * s, y + 9 * s, attrs, textStyle(8 * s, UI.textDim)).setOrigin(1, 0));
-      const b = new Button(this, area.w - 52 * s, y + rowH / 2, 'Criar', () => {
+      const b = new Button(this, area.w - 52 * s, y + rowH / 2, 'Craft', () => {
         if (game.craft(r.id)) { sfx('craft'); this.rebuildPanel(); } else sfx('error');
       }, { width: 80 * s, height: 30 * s, kind: 'primary', disabled: !can });
       content.add(b);
@@ -678,12 +681,12 @@ export class UIScene extends Phaser.Scene {
     const by = touch ? 60 * s : h - bh - 12 * s;
     this.decorHud.push(drawPanel(this, bx, by, bw, bh).setDepth(600));
     const item = this.world.decorInfo.item;
-    if (item) this.decorHud.push(this.add.image(bx + 22 * s, by + bh / 2, this.world.furnTexture(item, this.world.decorInfo.rot)).setScale(s * 0.9).setDepth(601));
-    const title = item ? `Decorando: ${ITEMS[item].name} (×${game.count(item)})` : 'Modo decoração — escolha uma mobília na mochila';
+    if (item) this.decorHud.push(this.fitIcon(this.add.image(bx + 22 * s, by + bh / 2, this.world.furnTexture(item, this.world.decorInfo.rot)).setScale(s * 0.9).setDepth(601), bh - 8 * s));
+    const title = item ? `Decorating: ${ITEMS[item].name} (×${game.count(item)})` : 'Decorate mode — choose furniture from your backpack';
     this.decorHud.push(this.add.text(bx + (item ? 40 : 14) * s, by + 10 * s, title, textStyle(11 * s, UI.title)).setDepth(601));
-    const hint = touch ? 'Joystick: andar · toque no chão: apontar; toque de novo para colocar/pegar.' : 'WASD: andar · mouse: apontar · E/clique: colocar ou pegar · R: girar · F/Esc: sair';
+    const hint = touch ? 'Joystick: walk · tap the floor to aim; tap again to place/pick up.' : 'WASD: walk · mouse: aim · E/click: place or pick up · R: rotate · F/Esc: exit';
     this.decorHud.push(this.add.text(bx + (item ? 40 : 14) * s, by + 27 * s, hint, textStyle(8.5 * s, UI.textDim, { wordWrap: { width: bw - (item ? 150 : 124) * s } })).setDepth(601));
-    this.decorHud.push(new Button(this, bx + bw - 60 * s, by + bh / 2, 'Mochila', () => this.openPanel('inventory'), { width: 92 * s, height: 28 * s, fontSize: 10 * s }).setDepth(601));
+    this.decorHud.push(new Button(this, bx + bw - 60 * s, by + bh / 2, 'Backpack', () => this.openPanel('inventory'), { width: 92 * s, height: 28 * s, fontSize: 10 * s }).setDepth(601));
     // requisitos da loja (missão 7)
     if (game.questActive('q7') && this.world.mapId === 'loja') {
       const q = QUESTS.q7;
@@ -692,10 +695,17 @@ export class UIScene extends Phaser.Scene {
       this.decorHud.push(drawPanel(this, 8 * s, rt.y - 8 * s, rt.width + 22 * s, rt.height + 16 * s, 'ui_pill').setDepth(600), rt);
     }
     if (touch) {
-      const rot = new RoundButton(this, w - 24 * s - 30 * s - 78 * s, h - 24 * s - 30 * s - 78 * s, 'ui_rotate', 22 * s, () => this.world.queueRotate(), undefined, 'Girar').setDepth(803);
-      const exit = new RoundButton(this, 24 * s + 22 * s, h - 24 * s - 46 * s - 46 * s - 60 * s, 'ui_close', 22 * s, () => this.world.exitDecor(), undefined, 'Sair').setDepth(803);
+      const rot = new RoundButton(this, w - 24 * s - 30 * s - 78 * s, h - 24 * s - 30 * s - 78 * s, 'ui_rotate', 22 * s, () => this.world.queueRotate(), undefined, 'Rotate').setDepth(803);
+      const exit = new RoundButton(this, 24 * s + 22 * s, h - 24 * s - 46 * s - 46 * s - 60 * s, 'ui_close', 22 * s, () => this.world.exitDecor(), undefined, 'Exit').setDepth(803);
       this.decorHud.push(rot, exit);
     }
+  }
+
+  /** Limita a escala de um ícone para caber em `maxPx` (mobílias grandes não estouram o slot). */
+  private fitIcon(img: Phaser.GameObjects.Image, maxPx: number): Phaser.GameObjects.Image {
+    const big = Math.max(img.width, img.height) * img.scaleX;
+    if (big > maxPx) img.setScale(img.scaleX * (maxPx / big));
+    return img;
   }
 
   private clearDecorHud(): void {

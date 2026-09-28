@@ -6,6 +6,12 @@ export interface ItemAttrs {
   natural?: number;
 }
 
+export const ATTRIBUTE_NAMES: Record<keyof ItemAttrs, string> = {
+  aconchego: 'Coziness',
+  iluminacao: 'Lighting',
+  natural: 'Nature',
+};
+
 export interface ItemDef {
   id: string;
   name: string;
@@ -20,44 +26,48 @@ export interface ItemDef {
   hang?: 'wall' | 'window';
   /** Mobílias de chão que não bloqueiam passagem (tapetes). */
   walkable?: boolean;
+  /** Tamanho do footprint em tiles [largura, altura] na orientação sul (padrão 1×1). Girar 90° troca os dois. */
+  size?: [number, number];
+  /** Só tem a vista sul (cama, móveis de parede). */
+  noRotate?: boolean;
 }
 
 export const ITEMS: Record<string, ItemDef> = {
   // ---- materiais
-  madeira: { id: 'madeira', name: 'Madeira', desc: 'Toras e galhos secos. A base de qualquer marcenaria.', kind: 'material', icon: 'icon_madeira' },
-  pedra: { id: 'pedra', name: 'Pedra', desc: 'Pedras lisas do bosque. Boas para bases e prateleiras.', kind: 'material', icon: 'icon_pedra' },
-  folhas: { id: 'folhas', name: 'Folhas', desc: 'Folhas macias, ótimas para enchimento e enfeites.', kind: 'material', icon: 'icon_folhas' },
-  fibra: { id: 'fibra', name: 'Fibra', desc: 'Fibras vegetais para tecer tapetes e almofadas.', kind: 'material', icon: 'icon_fibra' },
-  flor: { id: 'flor', name: 'Flor colorida', desc: 'Flores do bosque com um pouco de cor ainda viva.', kind: 'material', icon: 'icon_flor' },
-  po_encanto: { id: 'po_encanto', name: 'Pó de Encanto', desc: 'Um brilho quente que resiste ao Desbotamento.', kind: 'material', icon: 'icon_po_encanto' },
-  flor_lua: { id: 'flor_lua', name: 'Flor-de-lua', desc: 'Só floresce perto do velho altar da floresta. Guarda cores esquecidas.', kind: 'material', icon: 'icon_flor_lua' },
-  tinta: { id: 'tinta', name: 'Tinta encantada', desc: 'Tinta que devolve cor a qualquer objeto.', kind: 'material', icon: 'icon_tinta' },
+  madeira: { id: 'madeira', name: 'Wood', desc: 'Dry logs and branches. The foundation of any woodworking project.', kind: 'material', icon: 'icon_madeira' },
+  pedra: { id: 'pedra', name: 'Stone', desc: 'Smooth forest stones. Good for bases and shelves.', kind: 'material', icon: 'icon_pedra' },
+  folhas: { id: 'folhas', name: 'Leaves', desc: 'Soft leaves, perfect for stuffing and decorations.', kind: 'material', icon: 'icon_folhas' },
+  fibra: { id: 'fibra', name: 'Fiber', desc: 'Plant fibers for weaving rugs and cushions.', kind: 'material', icon: 'icon_fibra' },
+  flor: { id: 'flor', name: 'Colorful flower', desc: 'Forest flowers with a little color still left in them.', kind: 'material', icon: 'icon_flor' },
+  po_encanto: { id: 'po_encanto', name: 'Wonder Dust', desc: 'A warm glow that resists the Fading.', kind: 'material', icon: 'icon_po_encanto' },
+  flor_lua: { id: 'flor_lua', name: 'Moonflower', desc: 'Blooms only near the old forest altar. Holds forgotten colors.', kind: 'material', icon: 'icon_flor_lua' },
+  tinta: { id: 'tinta', name: 'Enchanted paint', desc: 'Paint that restores color to any object.', kind: 'material', icon: 'icon_tinta' },
 
   // ---- itens-chave
-  foto: { id: 'foto', name: 'Fotografia antiga', desc: '"Enquanto alguém continuar criando, a vila nunca perderá completamente sua magia."', kind: 'key', icon: 'icon_foto' },
-  fragmento: { id: 'fragmento', name: 'Fragmento de Encanto', desc: 'Um pedaço de um Pequeno Encanto. Pulsa suavemente na direção da praça.', kind: 'key', icon: 'icon_fragmento' },
-  carta: { id: 'carta', name: 'Carta misteriosa', desc: '"Se você conseguiu despertar um encanto, talvez ainda exista esperança para o Bosque dos Sussurros."', kind: 'key', icon: 'icon_carta' },
+  foto: { id: 'foto', name: 'Old photograph', desc: '"As long as someone keeps creating, the village will never lose all its magic."', kind: 'key', icon: 'icon_foto' },
+  fragmento: { id: 'fragmento', name: 'Wonder Fragment', desc: 'A piece of a Little Wonder. Pulses gently toward the square.', kind: 'key', icon: 'icon_fragmento' },
+  carta: { id: 'carta', name: 'Mysterious letter', desc: '"If you\'ve managed to awaken a wonder, perhaps there\'s still hope for the Whispering Woods."', kind: 'key', icon: 'icon_carta' },
 
   // ---- mobílias (marcenaria)
-  cama: { id: 'cama', name: 'Cama simples', desc: 'Uma cama de madeira com colcha lilás. Finalmente, descanso.', kind: 'furniture', icon: 'furn_cama', attrs: { aconchego: 3 } },
-  luminaria: { id: 'luminaria', name: 'Luminária', desc: 'Luz quente para noites de criação.', kind: 'furniture', icon: 'furn_luminaria', attrs: { aconchego: 1, iluminacao: 2 } },
-  cadeira: { id: 'cadeira', name: 'Cadeira', desc: 'Cadeira de madeira com almofada coral.', kind: 'furniture', icon: 'furn_cadeira', attrs: { aconchego: 1 } },
-  mesa_cha: { id: 'mesa_cha', name: 'Mesa de chá', desc: 'Mesinha redonda para uma xícara e um doce.', kind: 'furniture', icon: 'furn_mesa_cha', attrs: { aconchego: 2 } },
-  prateleira: { id: 'prateleira', name: 'Prateleira', desc: 'Para expor potes, livros e lembranças.', kind: 'furniture', icon: 'furn_prateleira', attrs: { aconchego: 1 }, wall: true },
-  vitrine: { id: 'vitrine', name: 'Vitrine de doces', desc: 'Vitrine de vidro para bolos e biscoitos.', kind: 'furniture', icon: 'furn_vitrine', attrs: { aconchego: 2, iluminacao: 1 }, wall: true },
-  banco: { id: 'banco', name: 'Banco de madeira', desc: 'Banco simples para dois amigos.', kind: 'furniture', icon: 'furn_banco', attrs: { aconchego: 1 } },
-  banquinho: { id: 'banquinho', name: 'Banquinho', desc: 'Pequeno, mas firme.', kind: 'furniture', icon: 'furn_banquinho', attrs: { aconchego: 1 } },
-  vaso_flores: { id: 'vaso_flores', name: 'Vaso de flores', desc: 'Flores do bosque em um vaso de barro.', kind: 'furniture', icon: 'furn_vaso_flores', attrs: { natural: 2 } },
+  cama: { id: 'cama', name: 'Simple bed', desc: 'A wooden bed with a lilac quilt. Rest, at last.', kind: 'furniture', icon: 'furn_cama', attrs: { aconchego: 3 }, size: [2, 2], noRotate: true },
+  luminaria: { id: 'luminaria', name: 'Lamp', desc: 'Warm light for nights spent creating.', kind: 'furniture', icon: 'furn_luminaria', attrs: { aconchego: 1, iluminacao: 2 } },
+  cadeira: { id: 'cadeira', name: 'Chair', desc: 'A wooden chair with a coral cushion.', kind: 'furniture', icon: 'furn_cadeira', attrs: { aconchego: 1 } },
+  mesa_cha: { id: 'mesa_cha', name: 'Tea table', desc: 'A little round table for a cup of tea and a treat.', kind: 'furniture', icon: 'furn_mesa_cha', attrs: { aconchego: 2 } },
+  prateleira: { id: 'prateleira', name: 'Shelf', desc: 'For displaying jars, books and keepsakes.', kind: 'furniture', icon: 'furn_prateleira', attrs: { aconchego: 1 }, wall: true, size: [2, 1], noRotate: true },
+  vitrine: { id: 'vitrine', name: 'Pastry display case', desc: 'A glass display case for cakes and cookies.', kind: 'furniture', icon: 'furn_vitrine', attrs: { aconchego: 2, iluminacao: 1 }, wall: true, size: [2, 1], noRotate: true },
+  banco: { id: 'banco', name: 'Wooden bench', desc: 'A simple bench for two friends.', kind: 'furniture', icon: 'furn_banco', attrs: { aconchego: 1 }, size: [2, 1] },
+  banquinho: { id: 'banquinho', name: 'Stool', desc: 'Small, but sturdy.', kind: 'furniture', icon: 'furn_banquinho', attrs: { aconchego: 1 } },
+  vaso_flores: { id: 'vaso_flores', name: 'Flower pot', desc: 'Forest flowers in a clay pot.', kind: 'furniture', icon: 'furn_vaso_flores', attrs: { natural: 2 } },
 
   // ---- mobílias (costura)
-  tapete: { id: 'tapete', name: 'Tapete tecido', desc: 'Tapete quente de fibras trançadas.', kind: 'furniture', icon: 'furn_tapete', attrs: { aconchego: 2 }, walkable: true },
-  almofada: { id: 'almofada', name: 'Almofada', desc: 'Macia e azul-petróleo.', kind: 'furniture', icon: 'furn_almofada', attrs: { aconchego: 2 } },
-  cortina: { id: 'cortina', name: 'Cortina', desc: 'Cortina verde-sálvia para suavizar a luz.', kind: 'furniture', icon: 'furn_cortina', attrs: { aconchego: 1, iluminacao: 1 }, wall: true, hang: 'window' },
+  tapete: { id: 'tapete', name: 'Woven rug', desc: 'A warm rug made of braided fibers.', kind: 'furniture', icon: 'furn_tapete', attrs: { aconchego: 2 }, walkable: true, size: [2, 2] },
+  almofada: { id: 'almofada', name: 'Cushion', desc: 'Soft and teal.', kind: 'furniture', icon: 'furn_almofada', attrs: { aconchego: 2 } },
+  cortina: { id: 'cortina', name: 'Curtain', desc: 'A sage curtain to soften the light.', kind: 'furniture', icon: 'furn_cortina', attrs: { aconchego: 1, iluminacao: 1 }, wall: true, hang: 'window' },
 
   // ---- mobílias (pintura)
-  quadro: { id: 'quadro', name: 'Quadro pintado', desc: 'Uma pintura do ateliê em seus melhores dias.', kind: 'furniture', icon: 'furn_quadro', attrs: { aconchego: 2 }, wall: true, hang: 'wall' },
-  vaso_encantado: { id: 'vaso_encantado', name: 'Vaso encantado', desc: 'Flores-de-lua que brilham à noite.', kind: 'furniture', icon: 'furn_vaso_encantado', attrs: { natural: 2, iluminacao: 1 } },
-  luminaria_encantada: { id: 'luminaria_encantada', name: 'Luminária encantada', desc: 'Luz lilás que afasta o Desbotamento.', kind: 'furniture', icon: 'furn_luminaria_encantada', attrs: { aconchego: 1, iluminacao: 3 } },
+  quadro: { id: 'quadro', name: 'Painting', desc: 'A painting of the workshop in its finest days.', kind: 'furniture', icon: 'furn_quadro', attrs: { aconchego: 2 }, wall: true, hang: 'wall' },
+  vaso_encantado: { id: 'vaso_encantado', name: 'Enchanted flower pot', desc: 'Moonflowers that glow at night.', kind: 'furniture', icon: 'furn_vaso_encantado', attrs: { natural: 2, iluminacao: 1 } },
+  luminaria_encantada: { id: 'luminaria_encantada', name: 'Enchanted lamp', desc: 'Lilac light that keeps the Fading away.', kind: 'furniture', icon: 'furn_luminaria_encantada', attrs: { aconchego: 1, iluminacao: 3 } },
 };
 
 export const MATERIAL_ORDER = ['madeira', 'pedra', 'folhas', 'fibra', 'flor', 'po_encanto', 'flor_lua', 'tinta'];

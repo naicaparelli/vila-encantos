@@ -21,6 +21,8 @@ interface WPlaced { data: PlacedItem; sprite: Phaser.GameObjects.Image }
 type Target = { kind: 'interact'; ref: WInteract } | { kind: 'node'; ref: WNode } | { kind: 'npc'; ref: WNpc };
 
 const DIR_VEC: Record<Dir, [number, number]> = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+/** Quanto os pendurados (quadro, cortina) sobem em relação à base do tile da parede (mesmo valor do `py` das janelas em `maps.ts`). */
+const HANG_LIFT = 14;
 
 /**
  * Cena principal: renderiza o mapa por tiles, controla o jogador, NPCs, coleta,
@@ -75,7 +77,7 @@ export class WorldScene extends Phaser.Scene {
   decorItem: string | null = null;
   private decorTile = { x: 0, y: 0 };
   private decorRot = 0;
-  private decorCursor!: Phaser.GameObjects.Image;
+  private decorCursor!: Phaser.GameObjects.Graphics;
   private decorGhost: Phaser.GameObjects.Image | null = null;
   private decorLastTap = { x: -1, y: -1 };
   private decorMoveAt = 0;
@@ -83,7 +85,7 @@ export class WorldScene extends Phaser.Scene {
   private stateHandlers: Array<[string, (...args: unknown[]) => void]> = [];
 
   // efeitos ambientais
-  private ambient: Array<{ img: Phaser.GameObjects.Image; vx: number; vy: number; phase: number; kind: 'leaf' | 'petal' | 'firefly' | 'mote' }> = [];
+  private ambient: Array<{ img: Phaser.GameObjects.Image; vx: number; vy: number; phase: number; kind: 'leaf' | 'petal' | 'firefly' | 'mote' | 'cloud' | 'glow' }> = [];
   private beam: Phaser.GameObjects.Image | null = null;
   private puffTimer = 0;
   private fountainSparkleTimer = 0;
@@ -134,7 +136,7 @@ export class WorldScene extends Phaser.Scene {
     this.buildInput();
     this.buildAmbient();
 
-    this.decorCursor = this.add.image(0, 0, 'cursorTile').setOrigin(0).setDepth(5000).setVisible(false);
+    this.decorCursor = this.add.graphics().setDepth(5000).setVisible(false);
 
     this.cameras.main.startFollow(this.player, true, 1, 1);
     this.applyZoom();
@@ -212,7 +214,11 @@ export class WorldScene extends Phaser.Scene {
         if (!this.def.floorChars.includes(below)) return 'wallSide';
         return this.mapId === 'loja' ? 'wallShop' : 'wall';
       }
-      case 'W': return 'wallTop';
+      case 'W': {
+        // a fileira de cima da parede de fundo (com '#' logo abaixo) mostra a metade superior da parede
+        if (this.charAt(x, y + 1) === '#') return this.mapId === 'loja' ? 'wallUpperShop' : 'wallUpper';
+        return 'wallTop';
+      }
       case 'D': return this.def.indoor ? (this.mapId === 'loja' ? 'matShop' : 'matWood') : 'matPath';
       default: return 'grass';
     }
@@ -286,8 +292,13 @@ export class WorldScene extends Phaser.Scene {
         }
         if (BLOCKING_CHARS.has(ch)) this.staticBlocked[y * this.cols + x] = 1;
         if (ch === 't') {
-          const tkey = (x * 31 + y * 17) % 5 === 0 ? 'treeRound' : (x + y) % 2 ? 'tree' : 'tree2';
-          this.groundShadow(x * TILE + 16, y * TILE + 32, 40, 12, 0.5);
+          // Árvores grandes (64×96) só na borda superior: no interior a copa esconderia nós, cercas e placas.
+          const h = (x * 31 + y * 17) % 7;
+          const big = y === 0;
+          const tkey = this.mapId === 'floresta'
+            ? (big ? (h < 2 ? 'treePine' : h === 2 ? 'treePine2' : h % 2 ? 'tree' : 'tree2') : (h < 2 ? 'treePineMed' : h === 2 ? 'treePineMed2' : h % 2 ? 'treeMed' : 'treeMed2'))
+            : (big ? (h === 0 ? 'treeRound' : (x + y) % 2 ? 'tree' : 'tree2') : (h === 0 ? 'treeRoundMed' : (x + y) % 2 ? 'treeMed' : 'treeMed2'));
+          this.groundShadow(x * TILE + 16, y * TILE + 32, big ? 56 : 42, big ? 14 : 12, 0.45);
           const t = this.add.image(x * TILE + 16, y * TILE + 32, this.tex(tkey)).setOrigin(0.5, 1).setDepth(y * TILE + 32);
           t.setData('base', tkey);
           this.treeImgs.push(t);
@@ -426,17 +437,59 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private buildPlaced(): void {
-    for (const p of game.placedIn(this.mapId)) this.addPlacedSprite(p);
+    for (const p of [...game.placedIn(this.mapId)]) {
+      if (!this.fitsFloor(p)) {
+        // Saves antigos (footprint 1×1) podem deixar um móvel maior sobre a parede: puxa para dentro do chão
+        // e, se não couber de jeito nenhum, devolve para a mochila.
+        const f = this.footprint(p.item, p.rot);
+        let ok = false;
+        for (let dy = 0; dy < f.h && !ok; dy++)
+          for (let dx = 0; dx < f.w && !ok; dx++)
+            if (this.fitsFloor({ ...p, x: p.x - dx, y: p.y - dy })) { p.x -= dx; p.y -= dy; ok = true; }
+        if (ok) game.scheduleSave();
+        else {
+          game.pickUp(this.mapId, p.uid);
+          this.time.delayedCall(800, () => this.ui?.toast(`${ITEMS[p.item].name} no longer fit there and went back to your backpack.`, ITEMS[p.item].icon));
+          continue;
+        }
+      }
+      this.addPlacedSprite(p);
+    }
   }
 
+  /** O footprint inteiro está sobre chão decorável e sem outra mobília? (pendurados ficam na parede e passam direto) */
+  private fitsFloor(p: PlacedItem): boolean {
+    if (ITEMS[p.item].hang) return true;
+    const { w, h } = this.footprint(p.item, p.rot);
+    for (let dy = 0; dy < h; dy++)
+      for (let dx = 0; dx < w; dx++) {
+        const x = p.x + dx; const y = p.y + dy;
+        if (!this.def.floorChars.includes(this.charAt(x, y))) return false;
+        const occ = this.placedAt(x, y);
+        if (occ && occ.data.uid !== p.uid) return false;
+      }
+    return true;
+  }
+
+  /** Footprint em tiles de uma mobília numa orientação (girar 90° troca largura e altura). */
+  private footprint(item: string, rot: number): { w: number; h: number } {
+    const [w, h] = ITEMS[item].size ?? [1, 1];
+    return rot % 2 ? { w: h, h: w } : { w, h };
+  }
+
+  /** Quanto os pendurados (quadro, cortina) sobem em relação à base do tile da parede, para não encostarem no chão. */
+  private hangLift(item: string): number { return ITEMS[item].hang ? HANG_LIFT : 0; }
+
+  /** Sprites de mobília são ancorados no canto inferior esquerdo do footprint; o excesso de altura sobe. */
   private addPlacedSprite(p: PlacedItem): WPlaced {
     const item = ITEMS[p.item];
-    const img = this.add.image(p.x * TILE + 16, p.y * TILE + 16, this.furnTexture(p.item, p.rot));
-    img.setDepth(item.walkable ? 2 : p.y * TILE + 32);
-    const w: WPlaced = { data: p, sprite: img };
-    this.placed.push(w);
-    if (this.occupiesFloor(p.item)) this.blockRects([{ x: p.x, y: p.y, w: 1, h: 1 }], 1);
-    return w;
+    const { w, h } = this.footprint(p.item, p.rot);
+    const img = this.add.image(p.x * TILE, (p.y + h) * TILE - this.hangLift(p.item), this.furnTexture(p.item, p.rot)).setOrigin(0, 1);
+    img.setDepth(item.walkable ? 2 : (p.y + h) * TILE);
+    const wp: WPlaced = { data: p, sprite: img };
+    this.placed.push(wp);
+    if (this.occupiesFloor(p.item)) this.blockRects([{ x: p.x, y: p.y, w, h }], 1);
+    return wp;
   }
 
   private buildPlayer(): void {
@@ -680,16 +733,16 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private promptFor(t: Target): string {
-    if (t.kind === 'node') return `Coletar ${ITEMS[t.ref.obj.material].name}`;
-    if (t.kind === 'npc') return `Falar com ${NPC_NAMES[t.ref.obj.id]}`;
+    if (t.kind === 'node') return `Gather ${ITEMS[t.ref.obj.material].name}`;
+    if (t.kind === 'npc') return `Talk to ${NPC_NAMES[t.ref.obj.id]}`;
     const k = t.ref.obj.kind;
     const done = t.ref.done;
     return {
-      box: 'Retirar caixa', web: 'Limpar teia', window: 'Abrir janela', photo: 'Pegar fotografia',
-      bench: done ? 'Bancada de marcenaria' : 'Bancada quebrada', sewing: done ? 'Mesa de costura' : 'Mesa de costura quebrada',
-      paint: done ? 'Mesa de pintura' : 'Mesa de pintura quebrada', notebook: 'Caderno dos Encantos', fountain: 'Fonte da praça',
-      log: 'Empurrar tronco', sign: 'Ler placa', shrine: 'Altar antigo',
-    }[k] ?? 'Interagir';
+      box: 'Clear box', web: 'Clear cobweb', window: 'Open window', photo: 'Pick up photograph',
+      bench: done ? 'Woodworking bench' : 'Broken workbench', sewing: done ? 'Sewing table' : 'Broken sewing table',
+      paint: done ? 'Painting table' : 'Broken painting table', notebook: 'Journal of Wonders', fountain: 'Village fountain',
+      log: 'Push log', sign: 'Read sign', shrine: 'Old altar',
+    }[k] ?? 'Interact';
   }
 
   queueAction(): void { this.actionQueued = true; }
@@ -762,7 +815,7 @@ export class WorldScene extends Phaser.Scene {
         break;
       case 'fountain':
         if (game.questActive('q8') && game.count('fragmento') > 0) this.fountainSequence(it);
-        else if (game.flag('praca_restored')) this.say(narrator('A água corre limpa. Pequenas luzes dançam na superfície.'));
+        else if (game.flag('praca_restored')) this.say(narrator('Clear water flows. Tiny lights dance on the surface.'));
         else this.say(narrator(...TEXTS.fountainDry));
         break;
       case 'log':
@@ -1006,9 +1059,25 @@ export class WorldScene extends Phaser.Scene {
     const all = { x: 0, y: 0, w: mapW, h: mapH };
     if (this.mapId === 'praca') spawn(this.vibrant ? 'petal' : 'leaf', 14, all);
     if (this.mapId === 'floresta') { spawn('firefly', 12, all); spawn('leaf', 6, all); }
+    if (!this.def.indoor) {
+      // sombras de nuvens passeando devagar por cima de tudo
+      for (let i = 0; i < 4; i++) {
+        const img = this.add.image(Math.random() * mapW, Math.random() * mapH, `fx_cloudShadow${i % 3}`).setDepth(4600).setAlpha(this.vibrant ? 0.55 : 0.35).setScale(1.6 + Math.random() * 1.2);
+        img.setData('area', { x: -260, y: -160, w: mapW + 520, h: mapH + 320 });
+        this.ambient.push({ img, vx: 9 + Math.random() * 6, vy: 2 + Math.random() * 2, phase: Math.random() * Math.PI * 2, kind: 'cloud' });
+      }
+      // halo quente nos lampiões
+      for (const p of this.props) {
+        if (p.obj.tex !== 'lamppost' || !p.visible) continue;
+        const img = this.add.image(p.sprite.x + 8, p.sprite.y + 8, 'fx_glow').setDepth(4550).setAlpha(this.vibrant ? 0.5 : 0.28).setScale(1.1);
+        img.setBlendMode(Phaser.BlendModes.ADD);
+        img.setData('area', all);
+        this.ambient.push({ img, vx: 0, vy: 0, phase: Math.random() * Math.PI * 2, kind: 'glow' });
+      }
+    }
     if (this.mapId === 'atelier' && game.flag('window_open')) {
       // feixe de luz da janela (tile 7,1) caindo no chão
-      this.beam = this.add.image(7 * TILE + 4, 1 * TILE + 26, 'fx_beam').setOrigin(0.25, 0).setDepth(3).setAlpha(this.vibrant ? 0.75 : 0.55);
+      this.beam = this.add.image(7 * TILE + 4, 1 * TILE + 12, 'fx_beam').setOrigin(0.25, 0).setDepth(3).setAlpha(this.vibrant ? 0.75 : 0.55);
       this.beam.setBlendMode(Phaser.BlendModes.ADD);
       spawn('mote', 10, { x: 7 * TILE - 10, y: 2 * TILE, w: 90, h: 110 });
     }
@@ -1020,7 +1089,12 @@ export class WorldScene extends Phaser.Scene {
     const t = time / 1000;
     for (const a of this.ambient) {
       const area = a.img.getData('area') as { x: number; y: number; w: number; h: number };
-      if (a.kind === 'firefly') {
+      if (a.kind === 'cloud') {
+        a.img.x += a.vx * dt; a.img.y += a.vy * dt;
+      } else if (a.kind === 'glow') {
+        a.img.setAlpha((this.vibrant ? 0.42 : 0.24) + 0.08 * Math.sin(t * 2.2 + a.phase));
+        continue;
+      } else if (a.kind === 'firefly') {
         a.img.x += Math.cos(t * 0.7 + a.phase) * 12 * dt;
         a.img.y += Math.sin(t * 1.1 + a.phase * 1.3) * 10 * dt;
         a.img.setAlpha(0.35 + 0.65 * Math.abs(Math.sin(t * 2 + a.phase)));
@@ -1032,6 +1106,11 @@ export class WorldScene extends Phaser.Scene {
         a.img.x += (a.vx * 0.5 + Math.sin(t * 2 + a.phase) * a.vx) * dt;
         a.img.y += a.vy * dt;
         a.img.setAngle(Math.sin(t * 3 + a.phase) * 35);
+      }
+      if (a.kind === 'cloud') {
+        if (a.img.x > area.x + area.w) { a.img.x = area.x; a.img.y = area.y + Math.random() * area.h; }
+        if (a.img.y > area.y + area.h) a.img.y = area.y;
+        continue;
       }
       if (a.img.y > area.y + area.h + 8) { a.img.y = area.y - 8; a.img.x = area.x + Math.random() * area.w; }
       if (a.img.x > area.x + area.w + 8) a.img.x = area.x - 8;
@@ -1079,7 +1158,7 @@ export class WorldScene extends Phaser.Scene {
             const lilo = this.npcs.find((n) => n.obj.id === 'lilo' && n.visible);
             const { lines } = getDialogue('lilo', game);
             this.say(lines, () => {
-              this.say(narrator('Você recebe uma carta misteriosa, entregue por ninguém, deixada na borda da fonte.', ...TEXTS.freeDecor), () => {
+              this.say(narrator('You find a mysterious letter on the fountain\'s edge. No one seems to have left it there.', ...TEXTS.freeDecor), () => {
                 this.cameras.main.fadeOut(900, 255, 255, 255);
                 this.cameras.main.once('camerafadeoutcomplete', () => { this.scene.stop('UIScene'); this.scene.start('EndingScene'); });
               });
@@ -1107,7 +1186,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   enterDecor(item: string | null): void {
-    if (!this.isDecoratable()) { this.ui?.toast('Este lugar não pode ser decorado (ainda).'); return; }
+    if (!this.isDecoratable()) { this.ui?.toast('You can\'t decorate this place (yet).'); return; }
     this.decorMode = true;
     this.decorItem = item;
     this.decorRot = 0;
@@ -1147,36 +1226,67 @@ export class WorldScene extends Phaser.Scene {
     if (!this.decorItem) return;
     const item = ITEMS[this.decorItem];
     void item;
-    this.decorGhost = this.add.image(0, 0, this.furnTexture(this.decorItem, this.decorRot)).setAlpha(0.65).setDepth(5001);
+    this.decorGhost = this.add.image(0, 0, this.furnTexture(this.decorItem, this.decorRot)).setOrigin(0, 1).setAlpha(0.65).setDepth(5001);
   }
 
   private setDecorTile(tx: number, ty: number): void {
     tx = Phaser.Math.Clamp(tx, 0, this.cols - 1);
     ty = Phaser.Math.Clamp(ty, 0, this.rows - 1);
     this.decorTile = { x: tx, y: ty };
-    const ok = this.decorItem ? this.canPlaceAt(tx, ty, this.decorItem) : !!this.placedAt(tx, ty);
-    this.decorCursor.setPosition(tx * TILE, ty * TILE).setTexture(ok ? 'cursorTile' : 'cursorTileBad');
-    if (this.decorGhost) this.decorGhost.setPosition(tx * TILE + 16, ty * TILE + 16).setAlpha(ok ? 0.7 : 0.35);
+    if (this.decorItem) {
+      const ok = this.canPlaceAt(tx, ty, this.decorItem);
+      const { w, h } = this.footprint(this.decorItem, this.decorRot);
+      this.drawCursor(tx, ty, w, h, ok);
+      this.decorGhost?.setPosition(tx * TILE, (ty + h) * TILE - this.hangLift(this.decorItem)).setAlpha(ok ? 0.7 : 0.35);
+    } else {
+      // modo "pegar": o cursor envolve o footprint inteiro da mobília sob ele
+      const under = this.placedAt(tx, ty);
+      if (under) { const f = this.footprint(under.data.item, under.data.rot); this.drawCursor(under.data.x, under.data.y, f.w, f.h, true); }
+      else this.drawCursor(tx, ty, 1, 1, false);
+    }
+  }
+
+  /** Moldura do cursor de decoração cobrindo w × h tiles (âmbar = válido, vermelho = inválido). */
+  private drawCursor(tx: number, ty: number, w: number, h: number, ok: boolean): void {
+    const g = this.decorCursor; g.clear();
+    const c = ok ? 0xffc857 : 0xd24b4b;
+    const x = tx * TILE; const y = ty * TILE; const pw = w * TILE; const ph = h * TILE;
+    g.fillStyle(c, 0.12); g.fillRect(x + 2, y + 2, pw - 4, ph - 4);
+    g.lineStyle(2, 0xfff8ee, 1); g.strokeRoundedRect(x + 1, y + 1, pw - 2, ph - 2, 3);
+    g.lineStyle(1, c, 1); g.strokeRoundedRect(x + 2.5, y + 2.5, pw - 5, ph - 5, 3);
+    g.fillStyle(c, 1);
+    for (const [cx, cy] of [[x, y], [x + pw - 4, y], [x, y + ph - 4], [x + pw - 4, y + ph - 4]]) g.fillRect(cx, cy, 4, 4);
   }
 
   private placedAt(tx: number, ty: number): WPlaced | undefined {
-    return this.placed.find((p) => p.data.x === tx && p.data.y === ty);
+    return this.placed.find((p) => {
+      const f = this.footprint(p.data.item, p.data.rot);
+      return tx >= p.data.x && tx < p.data.x + f.w && ty >= p.data.y && ty < p.data.y + f.h;
+    });
   }
 
-  canPlaceAt(tx: number, ty: number, item: string): boolean {
-    const ch = this.charAt(tx, ty);
+  /** (tx, ty) é o canto superior esquerdo do footprint; `ignoreUid` permite testar a rotação de uma mobília já colocada. */
+  canPlaceAt(tx: number, ty: number, item: string, rot = this.decorRot, ignoreUid?: string): boolean {
     const def = ITEMS[item];
-    if (this.placedAt(tx, ty)) return false;
     if (def.hang) {
       // pendurados ficam no próprio tile da parede de fundo (com chão logo abaixo) ou sobre uma janela
+      if (this.placedAt(tx, ty)) return false;
+      const ch = this.charAt(tx, ty);
       if (def.hang === 'window') return this.windowAt(tx, ty);
       return ch === '#' && this.def.floorChars.includes(this.charAt(tx, ty + 1)) && !this.windowAt(tx, ty);
     }
-    if (!this.def.floorChars.includes(ch)) return false;
-    if (this.isBlocked(tx, ty)) return false;
+    const { w, h } = this.footprint(item, rot);
     const f = this.feetTile();
-    if (f.x === tx && f.y === ty && !def.walkable) return false;
-    if (def.wall && this.charAt(tx, ty - 1) !== '#') return false;
+    for (let dy = 0; dy < h; dy++)
+      for (let dx = 0; dx < w; dx++) {
+        const x = tx + dx; const y = ty + dy;
+        if (!this.def.floorChars.includes(this.charAt(x, y))) return false;
+        const occ = this.placedAt(x, y);
+        if (occ && occ.data.uid !== ignoreUid) return false;
+        if (this.isBlocked(x, y)) return false;
+        if (f.x === x && f.y === y && !def.walkable) return false;
+        if (def.wall && dy === 0 && this.charAt(x, y - 1) !== '#') return false;
+      }
     return true;
   }
 
@@ -1228,7 +1338,8 @@ export class WorldScene extends Phaser.Scene {
     } else if (existing) {
       // pegar item do chão e passar a segurá-lo
       const item = existing.data.item;
-      if (this.occupiesFloor(item)) this.blockRects([{ x, y, w: 1, h: 1 }], -1);
+      const fp = this.footprint(item, existing.data.rot);
+      if (this.occupiesFloor(item)) this.blockRects([{ x: existing.data.x, y: existing.data.y, w: fp.w, h: fp.h }], -1);
       game.pickUp(this.mapId, existing.data.uid);
       existing.sprite.destroy();
       this.placed = this.placed.filter((p) => p !== existing);
@@ -1239,20 +1350,40 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** Mobílias penduradas, de parede e as marcadas `noRotate` têm uma só vista. */
+  private rotatable(item: string): boolean {
+    const d = ITEMS[item];
+    return !d.hang && !d.wall && !d.noRotate;
+  }
+
   decorRotate(): void {
     if (this.decorItem) {
-      if (ITEMS[this.decorItem].hang) return; // pendurados têm uma só vista
+      if (!this.rotatable(this.decorItem)) return;
       this.decorRot = (this.decorRot + 1) % 4;
       this.decorGhost?.setTexture(this.furnTexture(this.decorItem, this.decorRot));
+      this.setDecorTile(this.decorTile.x, this.decorTile.y); // o footprint pode ter mudado
       sfx('select');
       return;
     }
     const existing = this.placedAt(this.decorTile.x, this.decorTile.y);
-    if (existing && !ITEMS[existing.data.item].hang) {
-      game.rotatePlaced(this.mapId, existing.data.uid);
-      existing.sprite.setTexture(this.furnTexture(existing.data.item, existing.data.rot));
-      sfx('select');
+    if (!existing || !this.rotatable(existing.data.item)) return;
+    const { item, x, y, uid } = existing.data;
+    const old = this.footprint(item, existing.data.rot);
+    const floor = this.occupiesFloor(item);
+    // libera o footprint atual, testa o novo (pode não caber ao trocar largura por altura) e reaplica
+    if (floor) this.blockRects([{ x, y, w: old.w, h: old.h }], -1);
+    if (!this.canPlaceAt(x, y, item, (existing.data.rot + 1) % 4, uid)) {
+      if (floor) this.blockRects([{ x, y, w: old.w, h: old.h }], 1);
+      sfx('error');
+      return;
     }
+    game.rotatePlaced(this.mapId, uid);
+    const nf = this.footprint(item, existing.data.rot);
+    if (floor) this.blockRects([{ x, y, w: nf.w, h: nf.h }], 1);
+    existing.sprite.setTexture(this.furnTexture(item, existing.data.rot)).setPosition(x * TILE, (y + nf.h) * TILE);
+    existing.sprite.setDepth(ITEMS[item].walkable ? 2 : (y + nf.h) * TILE);
+    this.setDecorTile(this.decorTile.x, this.decorTile.y);
+    sfx('select');
   }
 
   get decorInfo(): { item: string | null; rot: number } { return { item: this.decorItem, rot: this.decorRot }; }

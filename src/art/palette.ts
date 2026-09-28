@@ -1,14 +1,14 @@
 /** Paleta base do jogo (README §16). */
 export const P = {
-  outline: '#3a2a2e',
-  black: '#1d1418',
+  outline: '#2c1e26',
+  black: '#1a1220',
   white: '#fff8ee',
   cream: '#f3e6c8',
   creamDark: '#d9c49a',
   creamLight: '#fbf3e0',
   wood: '#a86f3d',
-  woodDark: '#7a4a25',
-  woodLight: '#c99356',
+  woodDark: '#74451f',
+  woodLight: '#cf9a55',
   lilac: '#b28fc9',
   lilacDark: '#7d5f96',
   lilacLight: '#d6bfe6',
@@ -24,18 +24,20 @@ export const P = {
   sage: '#8fb08a',
   sageDark: '#5f7f5c',
   sageLight: '#b8d1b0',
-  grass: '#6ea85a',
-  grassDark: '#4f8244',
-  grassLight: '#8fc46f',
-  dirt: '#b48a5c',
-  dirtDark: '#8a6640',
-  dirtLight: '#cba579',
-  stone: '#9a9aa3',
-  stoneDark: '#6c6c76',
-  stoneLight: '#c1c1c9',
-  water: '#5aa7d6',
-  waterDark: '#3b7fb0',
-  waterLight: '#9dd3f0',
+  grass: '#62ad47',
+  grassDark: '#3f7d3b',
+  grassLight: '#8fd05c',
+  grassDeep: '#2c5a36',
+  dirt: '#c49b5e',
+  dirtDark: '#8e693c',
+  dirtLight: '#e0c284',
+  stone: '#9a9db0',
+  stoneDark: '#62647a',
+  stoneLight: '#c9cbd8',
+  water: '#4a9bd8',
+  waterDark: '#2c6cae',
+  waterLight: '#8fd2f0',
+  waterDeep: '#1f4f8f',
   amber: '#ffc857',
   amberDark: '#d99a2b',
   pink: '#f2a7c3',
@@ -97,4 +99,18 @@ export function darken(hex: Hex, t = 0.2): Hex {
 
 export function lighten(hex: Hex, t = 0.2): Hex {
   return mix(hex, P.white, t);
+}
+
+/**
+ * Sombreamento com desvio de matiz (como na pixel art de referência): sombras puxam
+ * para azul-arroxeado e luzes para amarelo quente, em vez de só preto/branco.
+ * t < 0 escurece, t > 0 clareia (|t| ≤ 1).
+ */
+export function shade(hex: Hex, t: number): Hex {
+  return t < 0 ? mix(hex, '#2a2e5c', Math.min(1, -t)) : mix(hex, '#fff1b8', Math.min(1, t));
+}
+
+/** Rampa de 5 tons com desvio de matiz: [muito escuro, escuro, base, claro, muito claro]. */
+export function ramp(hex: Hex): [Hex, Hex, Hex, Hex, Hex] {
+  return [shade(hex, -0.55), shade(hex, -0.3), hex, shade(hex, 0.28), shade(hex, 0.5)];
 }

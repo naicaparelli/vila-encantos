@@ -1,9 +1,9 @@
 export type StationId = 'marcenaria' | 'costura' | 'pintura';
 
 export const STATION_NAMES: Record<StationId, string> = {
-  marcenaria: 'Bancada de marcenaria',
-  costura: 'Mesa de costura',
-  pintura: 'Mesa de pintura',
+  marcenaria: 'Woodworking bench',
+  costura: 'Sewing table',
+  pintura: 'Painting table',
 };
 
 export interface RecipeDef {

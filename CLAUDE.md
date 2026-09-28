@@ -176,6 +176,32 @@ Para regerar: `npm run build && bash tools/serve.sh && node tools/peek.mjs && no
 - O `vite preview` serve o `index.html` em cache; depois de cada `build` é preciso reiniciá-lo (`tools/serve.sh`), senão os testes rodam o bundle antigo.
 - O Desbotamento continua automático: toda textura nova ganha a variante `__faded`, exceto UI, ícones e efeitos (`NO_FADE_PREFIXES`).
 
+## 12. Direção de arte 2 (referência Stardew Valley)
+
+Passe feito a partir de duas imagens de referência (`referencia de pixel art.png`, `referencia de estilo de pixel art.jpg`, na raiz), com o objetivo de aproximar o jogo do padrão de pixel art do Stardew Valley: cores mais saturadas, sombras deslocadas para azul/roxo e luzes para amarelo, muita textura no chão, vegetação em cachos e atmosfera (nuvens, vinheta, halos de luz).
+
+- **Paleta** (`src/art/palette.ts`): verdes/terra/água/pedra mais saturados e com desvio de matiz; `shade(hex, t)` (t<0 puxa para azul-arroxeado, t>0 para amarelo quente) e `ramp(hex)` (5 tons). Novas chaves `grassDeep`, `waterDeep`. Prefira `shade()` a `darken()/lighten()` em arte nova.
+- **Terreno** (`src/art/tiles.ts`): grama com pinceladas de capim escuras/claras, manchas de relevo, trevos e pedrinhas; caminho arenoso com pedrinhas volumétricas, rachaduras e gravetos; água com profundidade suave e cristas finas com ponta branca (contraste baixo para a repetição do tile não aparecer); pedra (`s`) com faces, aresta e musgo.
+- **Vegetação** (`src/art/objects.ts`): `canopy()` em cachos de 4 tons; árvores grandes 64×96 (`tree`, `tree2`, `treeRound`, `treePine*`) **só na fileira 0** dos mapas, versões médias 48×64 (`treeMed*`, `treeRoundMed`, `treePineMed*`) no restante — copas grandes no interior escondiam nós, cerca e placa (escolha em `WorldScene.buildTiles`). Pinheiros só na floresta. Arbusto refeito com a mesma copa.
+- **Interiores**: a fileira `W` que tem `#` logo abaixo passou a mostrar a metade de cima da parede (`wallUpper`/`wallUpperShop`: viga do teto com sombra em degradê + papel de parede), e `#` a metade de baixo com lambri e rodapé (`wall`/`wallShop`). O cômodo parece mais alto sem mudar os mapas. Piso de madeira mais claro/quente com tábuas longas (metade das fileiras sem emenda) para os móveis se destacarem; azulejo da loja com reflexo.
+- **Fachadas**: telhas com variação por telha, cumeeira clara e sombra em degradê por fileira; paredes com sombra do beiral e luz rasante.
+- **Atmosfera** (`WorldScene.buildAmbient/updateAmbient`): sombras de nuvens (`fx_cloudShadow*`, 4 por mapa externo, depth 4600) passeando devagar; halo aditivo pulsante nos postes (`fx_glow`); vinheta de tela em `UIScene.buildHud` (`fx_vignette`, 320×180 esticado, alpha 0.6, depth 1 abaixo do HUD).
+- Verificação: `peek.mjs` (todos os mapas), `furn.mjs`, smoke desktop e mobile com 0 erros.
+
+### Mobílias em vista 3/4 com footprint multi-tile (`src/art/furniture.ts`)
+
+Refeitas a partir de `moveis referencia 1.jpg` / `moveis referencia 2.jpg` (interiores do Stardew): topo comprimido + face frontal visível, pernas, 3–4 tons por material com sombra deslocada para o azul, contorno escuro e sombra projetada.
+
+- **Footprint** em tiles por item (`size: [w, h]` em `items.ts`, orientação sul; girar 90° troca w/h): cama 2×2 (sprite 64×76; a versão 2×3 invadia a parede do ateliê), estante 2×1, vitrine 2×1, banco 2×1 (↔ 1×2 de lado), tapete 2×2; os demais 1×1.
+- **Altura na parede**: janelas e a prateleira velha têm `py: -14` em `maps.ts`, e os pendurados (quadro, cortina) sobem o mesmo `HANG_LIFT = 14` em `WorldScene` (sprite e fantasma), para ficarem no meio da parede em vez de encostados no chão. O feixe de luz da janela do ateliê acompanha. Sprites podem ser mais altos que o footprint (cabeceira, encosto, cúpula): são ancorados no canto inferior esquerdo do footprint (`setOrigin(0, 1)` em `(x·32, (y+h)·32)`) e a profundidade é a base do footprint.
+- `noRotate` (cama) e móveis de parede/pendurados têm só a vista sul; o gerador devolve a mesma arte para as 4 orientações. Cadeira, mesa de chá, banco, vaso, luminária, banquinho, almofada e tapete têm variações por orientação.
+- `WorldScene`: `footprint()`, `placedAt()` (cobre todos os tiles do footprint), `canPlaceAt(tx, ty, item, rot, ignoreUid)` (canto superior esquerdo; checa chão, bloqueios, pés do jogador e, para `wall`, parede acima da primeira fileira), cursor de decoração virou um `Graphics` que envolve w×h tiles (e o footprint inteiro do móvel sob o cursor no modo "pegar"), `decorRotate` de um móvel já colocado libera o footprint antigo, testa o novo e recusa se não couber.
+- `UIScene.fitIcon()` limita a escala dos ícones de mobília (a cama tem 64×108) nos slots, painéis e HUD.
+- `tools/furn.mjs` foi reescrito com posições explícitas por footprint (cenas A e B); `smoke.mjs` ajustado (quadro no tile da parede, cama em (8,6) na loja).
+- Correção: `trunk()` tinha os argumentos de `hline` trocados na raiz direita, o que desenhava uma linha marrom saindo do pinheiro.
+
+Próximos passos sugeridos nessa linha: vista lateral do banco mais rica, personagens com um tom a mais de sombreamento, tela de título com a cena restaurada, fumaça nas chaminés e brilho quente nas janelas das casas restauradas.
+
 ## 11. Ajustes de jogabilidade (após o upgrade visual)
 
 - **Colisão em pixels** (`pxBlocks` em props/interações, `src/data/maps.ts`): retângulos em pixels relativos ao sprite, somados à grade de tiles em `WorldScene.fits()`. Usados na fonte (oval do tanque), no altar (base) e nos postes (só a base de 10 px). Resolve paredes invisíveis atrás de objetos grandes e cantos quadrados em formas redondas. `blockObj()` liga/desliga os dois tipos de bloqueio junto com a visibilidade do objeto.

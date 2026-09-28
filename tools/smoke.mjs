@@ -216,7 +216,8 @@ await goDoor(6, 9, 'south');
 await goDoor(17, 5, 'north');
 await ev(() => {
   const g = window.__state;
-  const items = [['vitrine', 2, 2], ['quadro', 5, 2], ['mesa_cha', 3, 5], ['mesa_cha', 7, 5], ['almofada', 2, 5], ['almofada', 8, 5], ['tapete', 5, 6], ['luminaria', 9, 3], ['vaso_flores', 1, 3], ['cama', 9, 7]];
+  // footprints: vitrine 2×1, tapete 2×2, cama 2×3; quadro pendurado no tile da parede
+  const items = [['vitrine', 2, 2], ['quadro', 5, 1], ['mesa_cha', 3, 5], ['mesa_cha', 7, 5], ['almofada', 2, 5], ['almofada', 8, 5], ['tapete', 5, 6], ['luminaria', 9, 3], ['vaso_flores', 1, 3], ['cama', 8, 6]];
   for (const [it, x, y] of items) g.place('loja', it, x, y, 0);
 });
 await goDoor(5, 8, 'south'); await goDoor(17, 5, 'north'); // recarrega a loja com as mobílias

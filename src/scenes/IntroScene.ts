@@ -31,7 +31,7 @@ export class IntroScene extends Phaser.Scene {
 
     this.slides = [
       {
-        caption: 'Mais um dia no escritório. Mais uma planilha. As luzes frias nunca se apagam por completo.',
+        caption: 'Another day at the office. Another spreadsheet. The cold lights never quite go out.',
         build: (c, w, h, s) => {
           this.officeBackdrop(c, w, h, s);
           const z = Math.min(3, Math.max(2, s * 1.6));
@@ -42,7 +42,7 @@ export class IntroScene extends Phaser.Scene {
         },
       },
       {
-        caption: 'Até que, entre um e-mail e outro, um anúncio aparece na tela.',
+        caption: 'Then, between emails, an ad appears on your screen.',
         build: (c, w, h, s) => {
           this.officeBackdrop(c, w, h, s);
           const pw = Math.min(w - 40, 440 * s);
@@ -55,16 +55,16 @@ export class IntroScene extends Phaser.Scene {
           c.add(drawPanel(this, w / 2 - pw / 2, h / 2 - ph / 2, pw, ph));
           c.add(this.add.image(w / 2 - pw / 2 + 70 * s, h / 2 + 4 * s, 'facadeAtelierNew').setScale(0.55 * s));
           c.add(this.add.image(w / 2 - pw / 2 + 70 * s, h / 2 - 52 * s, 'sparkle0').setScale(s));
-          c.add(this.add.text(w / 2 + 50 * s, h / 2 - 8 * s, 'Recomece sua vida na encantadora\nVila dos Pequenos Encantos.', {
+          c.add(this.add.text(w / 2 + 50 * s, h / 2 - 8 * s, 'Start a new life in the charming\nVillage of Little Wonders.', {
             fontFamily: 'Georgia, serif', fontSize: `${Math.round(12 * s)}px`, color: UI.title, align: 'center', wordWrap: { width: pw - 150 * s },
           }).setOrigin(0.5));
-          c.add(this.add.text(w / 2 + 50 * s, h / 2 + 34 * s, 'Ateliê mobiliado, vista privilegiada\ne vizinhos acolhedores.', {
+          c.add(this.add.text(w / 2 + 50 * s, h / 2 + 34 * s, 'A furnished workshop, stunning views\nand welcoming neighbors.', {
             fontFamily: 'Georgia, serif', fontSize: `${Math.round(10 * s)}px`, color: UI.textDim, align: 'center', wordWrap: { width: pw - 150 * s },
           }).setOrigin(0.5));
         },
       },
       {
-        caption: 'Você compra o ateliê naquela noite. Pede demissão na manhã seguinte. E parte cheio de expectativas.',
+        caption: 'You buy the workshop that night. Quit your job the next morning. And set off full of hope.',
         build: (c, w, h, s) => {
           const g = this.add.graphics();
           const bands = 6;
@@ -91,7 +91,7 @@ export class IntroScene extends Phaser.Scene {
         },
       },
       {
-        caption: 'A placa da vila está quebrada. A praça, sem cor e coberta de folhas. As casas, fechadas. Quase ninguém na rua.',
+        caption: 'The village sign is broken. The square is colorless and covered in leaves. The houses are shuttered. Almost no one is outside.',
         build: (c, w, h, s) => {
           const cols = Math.ceil(w / 32) + 1;
           const rows = Math.ceil(h / 32) + 1;
@@ -108,7 +108,7 @@ export class IntroScene extends Phaser.Scene {
         },
       },
       {
-        caption: 'E o ateliê "mobiliado, com vista privilegiada" é aquele ali. Menor. Com o telhado furado. Mas com uma luzinha âmbar ainda acesa.',
+        caption: 'And the workshop, "fully furnished, with stunning views", is that one over there. Smaller. A hole in the roof. But a tiny amber light still glows inside.',
         build: (c, w, h, s) => {
           const cols = Math.ceil(w / 32) + 1;
           const rows = Math.ceil(h / 32) + 1;
@@ -128,9 +128,9 @@ export class IntroScene extends Phaser.Scene {
     this.container = this.add.container(0, 0);
     this.caption = this.add.text(0, 0, '', textStyle(13, UI.text)).setOrigin(0.5, 0);
     const s = uiScale(this);
-    const skip = new Button(this, this.scale.width - 60 * s, 22 * s, 'Pular', () => this.finish(), { width: 90 * s, height: 28 * s, fontSize: 11 * s });
+    const skip = new Button(this, this.scale.width - 60 * s, 22 * s, 'Skip', () => this.finish(), { width: 90 * s, height: 28 * s, fontSize: 11 * s });
     skip.setDepth(10);
-    this.add.text(this.scale.width / 2, this.scale.height - 6, 'toque / E / espaço para continuar', hudStyle(9 * s, P.lilacLight)).setOrigin(0.5, 1).setDepth(10);
+    this.add.text(this.scale.width / 2, this.scale.height - 6, 'tap / E / space to continue', hudStyle(9 * s, P.lilacLight)).setOrigin(0.5, 1).setDepth(10);
 
     this.showSlide(0);
     this.input.on('pointerdown', () => this.next());

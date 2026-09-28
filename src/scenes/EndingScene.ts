@@ -37,17 +37,17 @@ export class EndingScene extends Phaser.Scene {
     const py = h * 0.4;
     drawPanel(this, px, py, pw, ph);
     this.add.image(px + 30 * s, py + 30 * s, 'letter').setScale(s * 1.5);
-    this.add.text(w / 2, py + 14 * s, 'Uma carta misteriosa', textStyle(15 * s, UI.title)).setOrigin(0.5, 0);
+    this.add.text(w / 2, py + 14 * s, 'A mysterious letter', textStyle(15 * s, UI.title)).setOrigin(0.5, 0);
     this.add.text(w / 2, py + 44 * s,
-      '"Se você conseguiu despertar um encanto,\ntalvez ainda exista esperança para o Bosque dos Sussurros."',
+      '"If you\'ve managed to awaken a wonder,\nperhaps there\'s still hope for the Whispering Woods."',
       textStyle(12 * s, UI.text, { align: 'center', wordWrap: { width: pw - 40 } })).setOrigin(0.5, 0);
     this.add.text(w / 2, py + 100 * s,
-      'Fim do primeiro capítulo.\nA decoração livre do ateliê foi desbloqueada, e a vila continua viva para você explorar.',
+      'End of Chapter One.\nFree decorating is now unlocked in your workshop, and the village is still yours to explore.',
       textStyle(10 * s, UI.textDim, { align: 'center', wordWrap: { width: pw - 40 } })).setOrigin(0.5, 0);
 
     const by = py + ph - 26 * s;
-    new Button(this, w / 2 - 90 * s, by, 'Voltar à vila', () => this.backToWorld(), { width: 160 * s, kind: 'primary' });
-    new Button(this, w / 2 + 90 * s, by, 'Título', () => { this.scene.start('TitleScene'); }, { width: 140 * s });
+    new Button(this, w / 2 - 90 * s, by, 'Back to the village', () => this.backToWorld(), { width: 160 * s, kind: 'primary' });
+    new Button(this, w / 2 + 90 * s, by, 'Title screen', () => { this.scene.start('TitleScene'); }, { width: 140 * s });
   }
 
   private backToWorld(): void {

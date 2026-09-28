@@ -68,7 +68,7 @@ export const BLOCKING_CHARS = new Set(['w', 'x', '-', '|', 's', '#', 'W', 'O', '
 export const MAPS: Record<MapId, MapDef> = {
   atelier: {
     id: 'atelier',
-    name: 'Ateliê',
+    name: 'Workshop',
     indoor: true,
     music: 'atelier',
     restoredFlag: 'atelier_restored',
@@ -88,13 +88,14 @@ export const MAPS: Record<MapId, MapDef> = {
       'WWWWWWDDWWWWWW',
     ],
     objects: [
-      { type: 'door', x: 6, y: 10, w: 2, h: 1, to: 'praca', spawn: { x: 4, y: 5 }, dir: 'south', label: 'Sair para a praça' },
+      { type: 'door', x: 6, y: 10, w: 2, h: 1, to: 'praca', spawn: { x: 4, y: 5 }, dir: 'south', label: 'Exit to the square' },
       { type: 'interact', id: 'notebook', kind: 'notebook', x: 2, y: 2, tex: 'notebookStand', blocks: [{ x: 2, y: 2, w: 1, h: 1 }] },
       { type: 'interact', id: 'bench', kind: 'bench', x: 9, y: 2, tex: 'benchBroken', texDone: 'benchOk', blocks: [{ x: 9, y: 2, w: 2, h: 1 }] },
       { type: 'interact', id: 'sewing', kind: 'sewing', x: 4, y: 2, px: 8, tex: 'sewingBroken', texDone: 'sewingOk', blocks: [{ x: 4, y: 2, w: 2, h: 1 }] },
       { type: 'interact', id: 'paint', kind: 'paint', x: 1, y: 7, px: 8, tex: 'paintBroken', texDone: 'paintOk', blocks: [{ x: 1, y: 7, w: 2, h: 1 }] },
-      { type: 'interact', id: 'window', kind: 'window', x: 7, y: 1, tex: 'windowClosed', texDone: 'windowOpen', flat: true },
-      { type: 'prop', id: 'shelf', x: 12, y: 1, tex: 'shelfOld', flat: true },
+      // janela e prateleira velha sobem 14 px na parede para não encostarem no chão
+      { type: 'interact', id: 'window', kind: 'window', x: 7, y: 1, py: -14, tex: 'windowClosed', texDone: 'windowOpen', flat: true },
+      { type: 'prop', id: 'shelf', x: 12, y: 1, py: -14, tex: 'shelfOld', flat: true },
       { type: 'interact', id: 'box1', kind: 'box', x: 3, y: 4, tex: 'crate', counter: 'boxes_atelier', blocks: [{ x: 3, y: 4, w: 1, h: 1 }] },
       { type: 'interact', id: 'box2', kind: 'box', x: 6, y: 5, tex: 'crate', counter: 'boxes_atelier', blocks: [{ x: 6, y: 5, w: 1, h: 1 }] },
       { type: 'interact', id: 'box3', kind: 'box', x: 10, y: 6, tex: 'crate', counter: 'boxes_atelier', blocks: [{ x: 10, y: 6, w: 1, h: 1 }] },
@@ -113,7 +114,7 @@ export const MAPS: Record<MapId, MapDef> = {
 
   praca: {
     id: 'praca',
-    name: 'Praça da Vila',
+    name: 'Village Square',
     indoor: false,
     music: 'praca',
     musicRestored: 'praca_restored',
@@ -143,9 +144,9 @@ export const MAPS: Record<MapId, MapDef> = {
     ],
     objects: [
       { type: 'prop', id: 'facade_atelier', x: 2, y: 0, px: -16, tex: 'facadeAtelierOld', texRestored: 'facadeAtelierNew', blocks: [{ x: 2, y: 1, w: 2, h: 4 }, { x: 5, y: 1, w: 3, h: 4 }, { x: 4, y: 1, w: 1, h: 3 }] },
-      { type: 'door', x: 4, y: 4, to: 'atelier', spawn: { x: 6, y: 9 }, dir: 'north', label: 'Entrar no ateliê' },
+      { type: 'door', x: 4, y: 4, to: 'atelier', spawn: { x: 6, y: 9 }, dir: 'north', label: 'Enter the workshop' },
       { type: 'prop', id: 'facade_shop', x: 15, y: 1, tex: 'facadeShopOld', texRestored: 'facadeShopNew', blocks: [{ x: 15, y: 2, w: 2, h: 3 }, { x: 18, y: 2, w: 2, h: 3 }, { x: 17, y: 2, w: 1, h: 2 }] },
-      { type: 'door', x: 17, y: 4, to: 'loja', spawn: { x: 5, y: 8 }, dir: 'north', label: 'Confeitaria da Amora' },
+      { type: 'door', x: 17, y: 4, to: 'loja', spawn: { x: 5, y: 8 }, dir: 'north', label: 'Amora\'s Bakery' },
       { type: 'prop', id: 'houseA', x: 9, y: 0, py: 48, tex: 'houseA', texRestored: 'houseANew', blocks: [{ x: 9, y: 2, w: 4, h: 3 }] },
       { type: 'prop', id: 'houseB', x: 19, y: 11, py: -16, tex: 'houseB', texRestored: 'houseBNew', blocks: [{ x: 19, y: 12, w: 4, h: 2 }] },
       { type: 'prop', id: 'houseC', x: 1, y: 11, py: -16, tex: 'houseC', texRestored: 'houseCNew', blocks: [{ x: 1, y: 12, w: 4, h: 2 }] },
@@ -172,7 +173,7 @@ export const MAPS: Record<MapId, MapDef> = {
       { type: 'node', id: 'praca_dust', x: 21, y: 10, material: 'po_encanto', amount: [1, 1] },
       { type: 'node', id: 'praca_stone', x: 2, y: 8, material: 'pedra', amount: [1, 2] },
       { type: 'node', id: 'praca_leaves', x: 20, y: 6, material: 'folhas', amount: [2, 3] },
-      { type: 'door', x: 23, y: 8, w: 1, h: 2, to: 'floresta', spawn: { x: 1, y: 8 }, dir: 'east', label: 'Ir para a floresta' },
+      { type: 'door', x: 23, y: 8, w: 1, h: 2, to: 'floresta', spawn: { x: 1, y: 8 }, dir: 'east', label: 'Go to the forest' },
       { type: 'npc', id: 'lilo', x: 14, y: 9, dir: 'west', hideWhen: 'praca_restored' },
       { type: 'npc', id: 'lilo', x: 12, y: 11, dir: 'south', showWhen: 'praca_restored' },
       { type: 'npc', id: 'pingo', x: 7, y: 10, dir: 'east', showWhen: 'pingo_in_praca', hideWhen: 'praca_restored' },
@@ -183,7 +184,7 @@ export const MAPS: Record<MapId, MapDef> = {
 
   floresta: {
     id: 'floresta',
-    name: 'Floresta',
+    name: 'Forest',
     indoor: false,
     music: 'floresta',
     decoratable: false,
@@ -208,7 +209,7 @@ export const MAPS: Record<MapId, MapDef> = {
       'tttttttttttttttttttttt',
     ],
     objects: [
-      { type: 'door', x: 0, y: 8, w: 1, h: 2, to: 'praca', spawn: { x: 22, y: 8 }, dir: 'west', label: 'Voltar à praça' },
+      { type: 'door', x: 0, y: 8, w: 1, h: 2, to: 'praca', spawn: { x: 22, y: 8 }, dir: 'west', label: 'Return to the square' },
       { type: 'interact', id: 'log', kind: 'log', x: 13, y: 3, px: -16, tex: 'fallenLog', blocks: [{ x: 13, y: 3, w: 1, h: 1 }], hideWhen: 'forest_path_open' },
       { type: 'interact', id: 'shrine', kind: 'shrine', x: 17, y: 1, tex: 'shrine', pxBlocks: [{ x: 16, y: 43, w: 32, h: 18 }, { x: 7, y: 47, w: 50, h: 11 }] },
       { type: 'node', id: 'f_wood1', x: 3, y: 2, material: 'madeira', amount: [2, 3] },
@@ -241,7 +242,7 @@ export const MAPS: Record<MapId, MapDef> = {
 
   loja: {
     id: 'loja',
-    name: 'Confeitaria da Amora',
+    name: 'Amora\'s Bakery',
     indoor: true,
     music: 'loja',
     musicRestored: 'loja_restored',
@@ -261,7 +262,7 @@ export const MAPS: Record<MapId, MapDef> = {
       'WWWWWDDWWWWW',
     ],
     objects: [
-      { type: 'door', x: 5, y: 9, w: 2, h: 1, to: 'praca', spawn: { x: 17, y: 5 }, dir: 'south', label: 'Sair para a praça' },
+      { type: 'door', x: 5, y: 9, w: 2, h: 1, to: 'praca', spawn: { x: 17, y: 5 }, dir: 'south', label: 'Exit to the square' },
       { type: 'interact', id: 'lbox1', kind: 'box', x: 3, y: 3, tex: 'crate', counter: 'boxes_loja', blocks: [{ x: 3, y: 3, w: 1, h: 1 }] },
       { type: 'interact', id: 'lbox2', kind: 'box', x: 8, y: 5, tex: 'crate', counter: 'boxes_loja', blocks: [{ x: 8, y: 5, w: 1, h: 1 }] },
       { type: 'interact', id: 'lbox3', kind: 'box', x: 2, y: 7, tex: 'crate', counter: 'boxes_loja', blocks: [{ x: 2, y: 7, w: 1, h: 1 }] },
@@ -269,8 +270,8 @@ export const MAPS: Record<MapId, MapDef> = {
       { type: 'interact', id: 'lweb2', kind: 'web', x: 1, y: 6, tex: 'cobweb', counter: 'webs_loja', flat: true },
       { type: 'prop', id: 'ldust1', x: 5, y: 4, tex: 'dustPile', flat: true, hideWhen: 'loja_restored' },
       { type: 'prop', id: 'ldust2', x: 9, y: 7, tex: 'dustPile', flat: true, hideWhen: 'loja_restored' },
-      { type: 'prop', id: 'lwindow', x: 3, y: 1, tex: 'windowOpen', flat: true },
-      { type: 'prop', id: 'lwindow2', x: 8, y: 1, tex: 'windowOpen', flat: true },
+      { type: 'prop', id: 'lwindow', x: 3, y: 1, py: -14, tex: 'windowOpen', flat: true },
+      { type: 'prop', id: 'lwindow2', x: 8, y: 1, py: -14, tex: 'windowOpen', flat: true },
       { type: 'npc', id: 'amora', x: 6, y: 3, dir: 'south', showWhen: 'amora_at_loja', hideWhen: 'praca_restored' },
     ],
   },

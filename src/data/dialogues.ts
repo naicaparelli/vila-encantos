@@ -21,68 +21,68 @@ const NPC_DIALOGUES: Record<string, Branch[]> = {
     {
       when: (g) => g.flag('praca_restored'),
       lines: [
-        'A fonte... está correndo de novo! Eu ouvi o barulho da água lá da loja e saí correndo.',
-        'Amanhã eu abro a confeitaria. Com bolo de baunilha, como nas manhãs de feira.',
-        'Obrigada por não desistir de nós.',
+        'The fountain... it\'s flowing again! I heard the water from the shop and came running.',
+        'I\'m opening the bakery tomorrow. With vanilla cake, just like on market mornings.',
+        'Thank you for not giving up on us.',
       ],
     },
     {
       when: (g) => g.questActive('q7') && g.questObjectivesDone('q7'),
       lines: [
-        'Está... perfeito. É exatamente como eu imaginava. Não, é melhor.',
-        'Espera. Tem alguma coisa brilhando embaixo da vitrine...',
-        '* Um fragmento âmbar pulsa suavemente entre as tábuas do chão.',
-        'Isso é um pedaço de Pequeno Encanto! Achei que tinham desaparecido todos.',
-        'Lilo sempre disse que os encantos moravam na fonte. Leve até lá. Por favor.',
+        'It\'s... perfect. Just how I imagined it. No, even better.',
+        'Wait. There\'s something glowing under the display case...',
+        '* An amber fragment pulses gently between the floorboards.',
+        'That\'s a piece of a Little Wonder! I thought they had all disappeared.',
+        'Lilo always said the wonders lived in the fountain. Take it there. Please.',
       ],
     },
     {
       when: (g) => g.questActive('q7'),
       lines: [
-        'Meu pedido: uma vitrine de doces, duas mesas de chá, duas almofadas, um tapete e um quadro.',
-        'E que fique aconchegante, com luz e um toque de natureza. Confira o progresso no Caderno (Tab).',
-        'Use o modo Decorar (F) aqui dentro. Eu fico fora do caminho, prometo.',
+        'Here\'s my request: a pastry display case, two tea tables, two cushions, a rug and a painting.',
+        'Make it cozy and bright, with a touch of nature. Check your progress in the Journal (Tab).',
+        'Use Decorate mode (F) in here. I\'ll stay out of the way, I promise.',
       ],
     },
     {
       when: (g) => g.questActive('q6'),
       lines: [
-        'Pingo disse que existem flores-de-lua na floresta. Lilo sabe onde. Ele só... não gosta de falar disso.',
-        'Quando a mesa de pintura estiver pronta, eu conto o meu pedido.',
+        'Pingo said there are moonflowers in the forest. Lilo knows where. He just... doesn\'t like talking about it.',
+        'Once the painting table is ready, I\'ll tell you what I have in mind.',
       ],
     },
     {
       when: (g) => g.questActive('q5') && !g.flag('talked_amora_q5'),
       lines: [
-        'Bem-vindo à minha confeitaria. Ou ao que sobrou dela.',
-        'Quando as cores foram embora, os clientes pararam de vir. Depois eu parei de assar. Depois... fechei.',
-        'Se você tirar essas caixas e teias, eu já consigo imaginar de novo como era.',
-        'Ah, e para tapetes e almofadas você vai precisar de uma mesa de costura. Pingo entende dessas coisas. Ele está na praça.',
+        'Welcome to my bakery. Or what\'s left of it.',
+        'When the colors went away, the customers stopped coming. Then I stopped baking. Then... I closed up.',
+        'If you clear out these boxes and cobwebs, I can start picturing how it used to be.',
+        'Oh, and you\'ll need a sewing table for rugs and cushions. Pingo knows about those things. He\'s in the square.',
       ],
       flags: ['talked_amora_q5'],
     },
     {
       when: (g) => g.questActive('q5'),
       lines: [
-        'As caixas ainda estão aqui? Sem pressa. Mas com um pouquinho de pressa.',
-        'Pingo está na praça, perto da fonte. Ele conserta qualquer mesa.',
+        'Are the boxes still here? No rush. Well, maybe a little rush.',
+        'Pingo is in the square, near the fountain. He can fix any worktable.',
       ],
     },
     {
       when: (g) => g.questActive('q4'),
       lines: [
-        'Oi? A porta estava aberta e eu vi luz. Faz muito tempo que não vejo luz nesta casa.',
-        '> Eu comprei o ateliê. Pela internet. O anúncio era... um pouco diferente.',
-        'Hihi. Todos os anúncios da vila eram. Eu sou Amora. Eu tinha uma confeitaria aqui na praça.',
-        'Tinha. Ainda tenho, na verdade. Só está fechada. Você faz móveis? De verdade?',
-        '> Estou aprendendo.',
-        'Então talvez você possa me ajudar a reabrir. Me encontre na confeitaria. É a casa com o toldo.',
+        'Hello? The door was open and I saw a light. It\'s been so long since I\'ve seen a light in this house.',
+        '> I bought the workshop. Online. The listing was... a little different.',
+        'Hehe. All the village listings were. I\'m Amora. I used to have a bakery here in the square.',
+        'Used to. I still do, actually. It\'s just closed. Do you make furniture? Really?',
+        '> I\'m learning.',
+        'Then maybe you can help me reopen. Meet me at the bakery. It\'s the house with the awning.',
       ],
       flags: ['talked_amora_q4'],
     },
     {
       when: () => true,
-      lines: ['Que bom te ver por aqui.'],
+      lines: ['It\'s nice to see you around.'],
     },
   ],
 
@@ -90,42 +90,42 @@ const NPC_DIALOGUES: Record<string, Branch[]> = {
     {
       when: (g) => g.flag('praca_restored'),
       lines: [
-        'Você viu isso? VIU ISSO? A água! As flores! Eu preciso inventar alguma coisa AGORA.',
-        'Uma máquina de fazer bolhas. Não. Um moinho. Não! Os dois!',
+        'Did you see that? DID YOU SEE THAT? The water! The flowers! I need to invent something RIGHT NOW.',
+        'A bubble machine. No. A windmill. No! Both!',
       ],
     },
     {
       when: (g) => g.questActive('q6') && !g.flag('paint_repaired'),
       lines: [
-        'A mesa de pintura do seu ateliê dá para consertar. Leve 3 madeira, 2 pedra e 1 flor-de-lua.',
-        'A flor-de-lua serve para calibrar as cores. Só cresce na clareira do altar. Pergunte ao Lilo como chegar lá.',
+        'The painting table in your workshop can be fixed. Bring 3 wood, 2 stone and 1 moonflower.',
+        'The moonflower helps balance the colors. It only grows in the altar clearing. Ask Lilo how to get there.',
       ],
     },
     {
       when: (g) => g.questDone('q6'),
       lines: [
-        'Já está pintando? Eu sabia que aquela mesa ainda tinha vida.',
-        'Quando terminar a loja da Amora, vem me contar. Eu quero ver.',
+        'Painting already? I knew that table still had some life in it.',
+        'Come tell me when you finish Amora\'s shop. I want to see it.',
       ],
     },
     {
       when: (g) => g.questActive('q5') && !g.flag('talked_pingo_q5'),
       lines: [
-        'Ei! Você é o novo artesão! Eu sou Pingo. Eu invento coisas. Bem, inventava.',
-        'Perdi minhas ferramentas quando o Desbotamento chegou. Ou parei de procurar. É parecido.',
-        '> Amora disse que você conserta mesas.',
-        'Mesas de costura são a minha especialidade! Tem uma no seu ateliê, não tem? Toda casa de artesão tinha.',
-        'Leve 4 madeira, 3 pedra e 2 fibra até ela. A fibra cresce perto do lago da floresta.',
+        'Hey! You\'re the new crafter! I\'m Pingo. I invent things. Well, I used to.',
+        'I lost my tools when the Fading came. Or I stopped looking. Same sort of thing.',
+        '> Amora said you fix worktables.',
+        'Sewing tables are my specialty! There\'s one in your workshop, right? Every crafter\'s home had one.',
+        'Bring it 4 wood, 3 stone and 2 fiber. You can find fiber near the forest pond.',
       ],
       flags: ['talked_pingo_q5'],
     },
     {
       when: (g) => g.questActive('q5'),
-      lines: ['A mesa de costura: 4 madeira, 3 pedra e 2 fibra. Fibra fica perto do lago.'],
+      lines: ['The sewing table: 4 wood, 3 stone and 2 fiber. Look for fiber near the pond.'],
     },
     {
       when: () => true,
-      lines: ['Se precisar consertar alguma coisa, é só chamar.'],
+      lines: ['If you need anything fixed, just give me a shout.'],
     },
   ],
 
@@ -133,48 +133,48 @@ const NPC_DIALOGUES: Record<string, Branch[]> = {
     {
       when: (g) => g.flag('praca_restored'),
       lines: [
-        'Então era verdade... a vila não estava perdida. Ela só estava esperando alguém recomeçar.',
-        'Eu cuidei desta praça por anos sem acreditar nela. Obrigado por acreditar por mim.',
-        'Aquele caminho ao norte leva ao Bosque dos Sussurros. Ainda está desbotado. Mas agora eu sei que não precisa ficar assim.',
+        'So it was true... the village wasn\'t lost. It was just waiting for someone to start again.',
+        'I looked after this square for years without believing in it. Thank you for believing when I couldn\'t.',
+        'That path to the north leads to the Whispering Woods. It\'s still faded. But now I know it doesn\'t have to stay that way.',
       ],
     },
     {
       when: (g) => g.questActive('q8'),
       lines: [
-        'Você está carregando um fragmento? Eu sinto o calor daqui.',
-        'A fonte. Os Pequenos Encantos sempre viveram na fonte. Coloque o fragmento lá.',
+        'Are you carrying a fragment? I can feel its warmth from here.',
+        'The fountain. The Little Wonders always lived in the fountain. Place the fragment there.',
       ],
     },
     {
       when: (g) => g.questActive('q6') && !g.flag('talked_lilo_q6'),
       lines: [
-        'Flores-de-lua? Ninguém pergunta sobre elas há muito tempo.',
-        'Elas crescem ao redor do velho altar, no nordeste da floresta. O caminho está fechado por um tronco.',
-        'Eu mesmo deixei o tronco lá. Achei que era melhor as pessoas pararem de esperar.',
-        'Mas você não parece do tipo que para. Vá. O tronco cede se você empurrar do lado certo.',
+        'Moonflowers? No one\'s asked about them in a long time.',
+        'They grow around the old altar in the northeast of the forest. A log blocks the path.',
+        'I left the log there myself. I thought it was better if people stopped hoping.',
+        'But you don\'t seem like the kind to stop. Go on. The log will budge if you push from the right side.',
       ],
       flags: ['talked_lilo_q6'],
     },
     {
       when: (g) => g.questActive('q6'),
-      lines: ['O altar fica no nordeste da floresta. Empurre o tronco. Ele cede.'],
+      lines: ['The altar is in the northeast of the forest. Push the log. It\'ll budge.'],
     },
     {
       when: (g) => g.questActive('q7'),
-      lines: ['Amora parece animada. Faz tempo que não vejo isso. Não estrague, por favor.'],
+      lines: ['Amora seems excited. I haven\'t seen that in a while. Please don\'t spoil it.'],
     },
     {
       when: (g) => g.questDone('q3'),
       lines: [
-        'Você acendeu luz no ateliê. Vi da praça.',
-        'Não se anime. As cores vão embora de novo. Sempre vão.',
+        'You lit up the workshop. I saw it from the square.',
+        'Don\'t get your hopes up. The colors will leave again. They always do.',
       ],
     },
     {
       when: () => true,
       lines: [
-        'Você é o novo dono do ateliê? Sou Lilo. Eu cuido da praça. Do que sobrou dela.',
-        'Não vou mentir: a vila não vai voltar a ser o que era. Mas boa sorte com a sua casa.',
+        'Are you the workshop\'s new owner? I\'m Lilo. I look after the square. What\'s left of it.',
+        'I won\'t lie: the village won\'t be what it once was. But good luck with your home.',
       ],
     },
   ],
@@ -185,7 +185,7 @@ export function getDialogue(npc: string, g: GameState): { lines: DialogueLine[];
   const branch = branches.find((b) => b.when(g)) ?? { lines: ['...'], flags: [] };
   const name = NPC_NAMES[npc] ?? npc;
   const lines = branch.lines.map((raw) => {
-    if (raw.startsWith('> ')) return { speaker: 'Você', text: raw.slice(2) };
+    if (raw.startsWith('> ')) return { speaker: 'You', text: raw.slice(2) };
     if (raw.startsWith('* ')) return { speaker: '', text: raw.slice(2) };
     return { speaker: name, text: raw };
   });
@@ -197,38 +197,38 @@ export const narrator = (...texts: string[]): DialogueLine[] => texts.map((text)
 /** Textos narrativos usados pelo mundo. */
 export const TEXTS = {
   notebookWake: [
-    'O Caderno dos Encantos desperta. Suas páginas brilham de leve.',
-    '"Todo grande recomeço precisa de um pequeno primeiro passo."',
+    'The Journal of Wonders awakens. Its pages glow softly.',
+    '"Every fresh start begins with one small step."',
   ],
-  windowOpen: ['A luz entra. Por um instante, as paredes parecem menos cinzas.'],
+  windowOpen: ['Light streams in. For a moment, the walls seem a little less gray.'],
   photoFound: [
-    'Uma fotografia antiga: o ateliê e a praça em seus melhores dias. Cores, bandeirinhas, gente.',
-    'No verso, alguém escreveu: "Enquanto alguém continuar criando, a vila nunca perderá completamente sua magia."',
-    'Atrás de você, a bancada quebrada começa a emitir uma luz suave.',
+    'An old photograph: the workshop and square in their brightest days. Colors, bunting, people.',
+    'On the back, someone wrote: "As long as someone keeps creating, the village will never lose all its magic."',
+    'Behind you, the broken workbench begins to glow softly.',
   ],
-  benchBroken: (have: number) => [`A bancada de marcenaria está quebrada. Com 5 madeira dá para consertar. (${have}/5)`],
-  benchRepaired: ['A bancada está firme de novo. Cheira a serragem fresca. Você aprendeu novas receitas.'],
-  sewingBroken: ['Uma mesa de costura, toda enferrujada. Alguém que entenda de máquinas saberia consertar.'],
-  sewingNeeds: (m: number, p: number, f: number) => [`Pingo pediu 4 madeira, 3 pedra e 2 fibra. Você tem ${m}/4, ${p}/3 e ${f}/2.`],
-  sewingRepaired: ['A mesa de costura ronrona. Tapetes, almofadas e cortinas agora são possíveis.'],
-  paintBroken: ['Uma mesa de pintura sem tintas. Falta alguma cor viva para começar.'],
-  paintNeeds: (m: number, p: number, f: number) => [`Para consertar: 3 madeira, 2 pedra e 1 flor-de-lua. Você tem ${m}/3, ${p}/2 e ${f}/1.`],
-  paintRepaired: ['A flor-de-lua se dissolve em tinta lilás. A mesa de pintura está pronta.'],
-  fountainDry: ['A fonte está seca há anos. No fundo, entre as folhas, há um encaixe vazio em forma de estrela.'],
-  logBlocked: ['Um tronco pesado bloqueia a passagem. Talvez alguém da vila saiba mais.'],
-  logMoved: ['Você empurra o tronco pelo lado certo. Ele cede com um rangido. A clareira se abre.'],
-  shrine: ['Um altar de pedra coberto de musgo. As flores-de-lua ao redor ainda brilham de leve.'],
-  signBroken: ['"Vila dos Pequ... Encan..." A placa está quebrada ao meio.'],
-  signOk: ['"Vila dos Pequenos Encantos. Bem-vindo de volta."'],
+  benchBroken: (have: number) => [`The woodworking bench is broken. You can repair it with 5 wood. (${have}/5)`],
+  benchRepaired: ['The workbench is sturdy again. It smells of fresh sawdust. You\'ve learned new recipes.'],
+  sewingBroken: ['A rusty sewing table. Someone who knows machines could help fix it.'],
+  sewingNeeds: (m: number, p: number, f: number) => [`Pingo asked for 4 wood, 3 stone and 2 fiber. You have ${m}/4, ${p}/3 and ${f}/2.`],
+  sewingRepaired: ['The sewing table hums. Now you can make rugs, cushions and curtains.'],
+  paintBroken: ['A painting table with no paint. It needs a little living color to get started.'],
+  paintNeeds: (m: number, p: number, f: number) => [`To repair: 3 wood, 2 stone and 1 moonflower. You have ${m}/3, ${p}/2 and ${f}/1.`],
+  paintRepaired: ['The moonflower dissolves into lilac paint. The painting table is ready.'],
+  fountainDry: ['The fountain has been dry for years. At the bottom, among the leaves, is an empty star-shaped socket.'],
+  logBlocked: ['A heavy log blocks the way. Maybe someone in the village knows more.'],
+  logMoved: ['You push the log from the right side. It gives way with a creak. The clearing opens up.'],
+  shrine: ['A moss-covered stone altar. The moonflowers around it still glow softly.'],
+  signBroken: ['"Village of Lit... Wond..." The sign is broken in half.'],
+  signOk: ['"Village of Little Wonders. Welcome back."'],
   arrival: [
-    'Vila dos Pequenos Encantos.',
-    'A placa está quebrada. A praça, sem cor e coberta de folhas. As casas, fechadas.',
-    'E o ateliê "mobiliado, com vista privilegiada"... é aquele ali, com o telhado furado.',
-    'Bom. Todo recomeço precisa de um primeiro passo.',
+    'Village of Little Wonders.',
+    'The sign is broken. The square is colorless and covered in leaves. The houses are shuttered.',
+    'And the workshop, "fully furnished, with stunning views"... is that one over there, with the hole in the roof.',
+    'Well. Every fresh start needs a first step.',
   ],
   atelierFirst: [
-    'Caixas, teias, móveis quebrados e janelas fechadas. Este é o seu novo ateliê.',
-    'Em um canto, um livro fechado brilha de leve.',
+    'Boxes, cobwebs, broken furniture and shuttered windows. This is your new workshop.',
+    'In a corner, a closed book glows softly.',
   ],
-  freeDecor: ['A decoração livre do ateliê foi desbloqueada. Crie o que quiser.'],
+  freeDecor: ['Free decorating is now unlocked in your workshop. Create whatever you like.'],
 };

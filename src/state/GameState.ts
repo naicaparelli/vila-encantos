@@ -87,6 +87,12 @@ class GameState extends Phaser.Events.EventEmitter {
       if (!raw) return false;
       const parsed = JSON.parse(raw) as SaveData;
       this.data = { ...defaultSave(parsed.species), ...parsed };
+      // Memories are authored by completed quests; refresh their text for older saves.
+      this.data.memories = this.data.doneQuests.flatMap((id) => {
+        const memory = QUESTS[id]?.memory;
+        return memory ? [memory] : [];
+      });
+      this.data.encantos = this.data.encantos.map((name) => name === 'Encanto da Fonte' ? 'Wonder of the Fountain' : name);
       return true;
     } catch {
       return false;

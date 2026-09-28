@@ -105,8 +105,8 @@ export class TitleScene extends Phaser.Scene {
     this.objects.push(ropes);
     const sign = drawPanel(this, tx, ty, tw, th);
     this.objects.push(sign);
-    const title = this.add.text(width / 2, ty + th / 2 - 9 * s, 'Vila dos Pequenos Encantos', textStyle(22 * s, UI.title, { fontStyle: 'bold', align: 'center', wordWrap: { width: tw - 40 * s } })).setOrigin(0.5);
-    const subtitle = this.add.text(width / 2, ty + th / 2 + 14 * s, '~ um cozy game de crafting, decoração e memórias ~', textStyle(9.5 * s, UI.lilac, { fontStyle: 'italic' })).setOrigin(0.5);
+    const title = this.add.text(width / 2, ty + th / 2 - 9 * s, 'Village of Little Wonders', textStyle(22 * s, UI.title, { fontStyle: 'bold', align: 'center', wordWrap: { width: tw - 40 * s } })).setOrigin(0.5);
+    const subtitle = this.add.text(width / 2, ty + th / 2 + 14 * s, '~ a cozy game of crafting, decorating and memories ~', textStyle(9.5 * s, UI.lilac, { fontStyle: 'italic' })).setOrigin(0.5);
     this.objects.push(title, subtitle);
     // balanço suave da placa
     this.tweens.add({ targets: [sign, title, subtitle, ropes], y: '+=3', duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
@@ -115,9 +115,9 @@ export class TitleScene extends Phaser.Scene {
     if (this.mode === 'menu') this.buildMenu(width, height, s);
     else this.buildSelect(width, height, s);
 
-    const muteBtn = new Button(this, width - 50 * s, 24 * s, music.muted ? 'Som: off' : 'Som: on', () => {
+    const muteBtn = new Button(this, width - 50 * s, 24 * s, music.muted ? 'Sound: off' : 'Sound: on', () => {
       const m = music.toggleMute();
-      muteBtn.setText(m ? 'Som: off' : 'Som: on');
+      muteBtn.setText(m ? 'Sound: off' : 'Sound: on');
     }, { width: 84 * s, height: 26 * s, fontSize: 11 * s });
     muteBtn.setDepth(10);
     this.objects.push(muteBtn);
@@ -131,10 +131,10 @@ export class TitleScene extends Phaser.Scene {
     spr.play(`player_${game.data.species ?? 'coelho'}_walk_south`);
     this.objects.push(spr);
     if (hasSave) {
-      this.objects.push(new Button(this, width / 2, y0, 'Continuar', () => { sfx('select'); this.continueGame(); }, { width: 200 * s, height: 40 * s, fontSize: 15 * s, kind: 'primary' }).setDepth(10));
+      this.objects.push(new Button(this, width / 2, y0, 'Continue', () => { sfx('select'); this.continueGame(); }, { width: 200 * s, height: 40 * s, fontSize: 15 * s, kind: 'primary' }).setDepth(10));
     }
-    this.objects.push(new Button(this, width / 2, y0 + (hasSave ? 50 * s : 0), 'Novo jogo', () => { sfx('select'); this.mode = 'select'; this.build(); }, { width: 200 * s, height: 40 * s, fontSize: 15 * s, kind: hasSave ? 'wood' : 'primary' }).setDepth(10));
-    this.objects.push(this.add.text(width / 2, height - 16 * s, 'WASD / setas: andar · Shift: correr · E: interagir · B: mochila · Tab: caderno · M: mapa · F: decorar', hudStyle(9 * s, P.cream, { align: 'center', wordWrap: { width: width - 40 } })).setOrigin(0.5, 1).setDepth(10));
+    this.objects.push(new Button(this, width / 2, y0 + (hasSave ? 50 * s : 0), 'New game', () => { sfx('select'); this.mode = 'select'; this.build(); }, { width: 200 * s, height: 40 * s, fontSize: 15 * s, kind: hasSave ? 'wood' : 'primary' }).setDepth(10));
+    this.objects.push(this.add.text(width / 2, height - 16 * s, 'WASD / arrows: walk · Shift: run · E: interact · B: backpack · Tab: journal · M: map · F: decorate', hudStyle(9 * s, P.cream, { align: 'center', wordWrap: { width: width - 40 } })).setOrigin(0.5, 1).setDepth(10));
   }
 
   private buildSelect(width: number, height: number, s0: number): void {
@@ -144,7 +144,7 @@ export class TitleScene extends Phaser.Scene {
     const px = width / 2 - panelW / 2;
     const py = height * 0.3;
     this.objects.push(drawPanel(this, px, py, panelW, panelH).setDepth(6));
-    this.objects.push(this.add.text(width / 2, py + 14 * s, 'Quem vai recomeçar a vida na vila?', textStyle(14 * s, UI.title)).setOrigin(0.5, 0).setDepth(7));
+    this.objects.push(this.add.text(width / 2, py + 14 * s, 'Who will start a new life in the village?', textStyle(14 * s, UI.title)).setOrigin(0.5, 0).setDepth(7));
 
     const slotW = panelW / 3;
     const slotH = Math.min(130 * s, panelH * 0.46);
@@ -164,11 +164,11 @@ export class TitleScene extends Phaser.Scene {
 
     const descY = slotY + slotH + 8 * s;
     this.objects.push(this.add.text(width / 2, descY, SPECIES_INFO[this.selected].desc, textStyle((panelH < 280 * s ? 9 : 10) * s, UI.textDim, { align: 'center', wordWrap: { width: panelW - 30 } })).setOrigin(0.5, 0).setDepth(8));
-    if (panelH >= 280 * s) this.objects.push(this.add.text(width / 2, descY + 30 * s, 'A escolha é apenas visual: todos têm as mesmas habilidades.', textStyle(9 * s, UI.textDim)).setOrigin(0.5, 0).setDepth(8));
+    if (panelH >= 280 * s) this.objects.push(this.add.text(width / 2, descY + 30 * s, 'Choose your look: everyone has the same abilities.', textStyle(9 * s, UI.textDim)).setOrigin(0.5, 0).setDepth(8));
 
     const by = py + panelH - 24 * s;
-    this.objects.push(new Button(this, width / 2 - 80 * s, by, 'Voltar', () => { this.mode = 'menu'; this.build(); }, { width: 130 * s, height: 32 * s, fontSize: 13 * s }).setDepth(9));
-    this.objects.push(new Button(this, width / 2 + 80 * s, by, 'Começar', () => { sfx('quest'); this.startNew(); }, { width: 150 * s, height: 32 * s, fontSize: 13 * s, kind: 'primary' }).setDepth(9));
+    this.objects.push(new Button(this, width / 2 - 80 * s, by, 'Back', () => { this.mode = 'menu'; this.build(); }, { width: 130 * s, height: 32 * s, fontSize: 13 * s }).setDepth(9));
+    this.objects.push(new Button(this, width / 2 + 80 * s, by, 'Start', () => { sfx('quest'); this.startNew(); }, { width: 150 * s, height: 32 * s, fontSize: 13 * s, kind: 'primary' }).setDepth(9));
   }
 
   private startNew(): void {

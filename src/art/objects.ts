@@ -1,5 +1,7 @@
-import { P, darken, lighten, mix, type Hex } from './palette';
+import { P, darken, lighten, mix, shade, type Hex } from './palette';
 import { Pix, rng, shadowPix, DITHER } from './pix';
+import { FURNITURE_GENERATORS, FACINGS } from './furniture';
+export { FACINGS, type Facing } from './furniture';
 import { tileGrass, tileCobble } from './tiles';
 
 /**
@@ -8,8 +10,6 @@ import { tileGrass, tileCobble } from './tiles';
  * Luz vem de cima/esquerda: bordas superiores/esquerdas claras, inferiores/direitas escuras.
  */
 
-export type Facing = 'south' | 'east' | 'north' | 'west';
-export const FACINGS: Facing[] = ['south', 'east', 'north', 'west'];
 
 // ---------------------------------------------------------------------------
 // Utilitários de desenho
@@ -51,26 +51,32 @@ function flower(p: Pix, x: number, y: number, petal: Hex, stemTo: number, center
 function roofShingles(p: Pix, x: number, y: number, w: number, h: number, c: Hex, seed: number, worn: boolean): void {
   p.rect(x, y, w, h, c);
   const rows = Math.floor(h / 4);
+  const rr = rng(seed + 77);
   for (let row = 0; row <= rows; row++) {
     const yy = y + row * 4;
     const t = row / Math.max(1, rows);
-    const rowC = mix(c, darken(c, 0.35), t * 0.5);
+    // fileiras de cima mais iluminadas, de baixo na sombra (desvio de matiz)
+    const rowC = shade(c, 0.18 - t * 0.5);
     const off = row % 2 ? 3 : 0;
     for (let xx = x - 6 + off; xx < x + w; xx += 6) {
+      const tileC = rr() < 0.18 ? shade(rowC, rr() < 0.5 ? 0.08 : -0.08) : rowC; // telhas com leve variação
       for (let k = 0; k < 6; k++) {
         const px = xx + k;
         if (px < x || px >= x + w) continue;
-        for (let yy2 = yy; yy2 < Math.min(yy + 4, y + h); yy2++) p.set(px, yy2, rowC);
+        for (let yy2 = yy; yy2 < Math.min(yy + 4, y + h); yy2++) p.set(px, yy2, tileC);
       }
-      // curva inferior da telha e sombra
+      // curva inferior da telha, sombra e brilho na borda de cima/esquerda
       if (yy + 3 < y + h) {
-        p.set(xx, yy + 3, darken(rowC, 0.35)); p.set(xx + 5, yy + 3, darken(rowC, 0.35));
-        p.hline(xx + 1, xx + 4, yy + 3, darken(rowC, 0.2));
-        p.hline(xx + 1, xx + 4, yy, lighten(rowC, 0.12));
+        p.set(xx, yy + 3, shade(tileC, -0.4)); p.set(xx + 5, yy + 3, shade(tileC, -0.4));
+        p.hline(xx + 1, xx + 4, yy + 3, shade(tileC, -0.25));
+        p.hline(xx + 1, xx + 3, yy, shade(tileC, 0.2));
+        if (xx + 1 >= x) p.set(xx + 1, yy + 1, shade(tileC, 0.1));
       }
-      if (xx >= x && xx < x + w) p.vline(xx, yy, Math.min(yy + 2, y + h - 1), darken(rowC, 0.25));
+      if (xx >= x && xx < x + w) p.vline(xx, yy, Math.min(yy + 2, y + h - 1), shade(tileC, -0.3));
     }
   }
+  // cumeeira clara
+  p.hline(x, x + w - 1, y, shade(c, 0.35));
   if (worn) {
     const r = rng(seed);
     for (let i = 0; i < 4; i++) {
@@ -427,67 +433,177 @@ export function leavesPile(seed = 1): Pix {
 // Natureza e pontos de coleta
 // ---------------------------------------------------------------------------
 
+/** Tronco com casca (veios verticais escuros), luz à esquerda e raízes abrindo na base. */
 function trunk(p: Pix, x: number, y: number, w: number, h: number): void {
-  p.rect(x, y, w, h, P.woodDark);
-  p.vline(x + 1, y, y + h - 1, P.wood); p.vline(x + 2, y, y + h - 1, mix(P.wood, P.woodLight, 0.4));
-  p.vline(x + w - 1, y, y + h - 1, P.brownDark);
-  for (let yy = y + 3; yy < y + h - 2; yy += 5) p.set(x + 3 + (yy % 2), yy, P.brownDark);
+  const bark = shade(P.woodDark, -0.1);
+  p.rect(x, y, w, h, bark);
+  p.vline(x + 1, y, y + h - 1, P.wood); p.vline(x + 2, y, y + h - 1, mix(P.wood, P.woodLight, 0.45));
+  p.vline(x + w - 1, y, y + h - 1, shade(P.brownDark, -0.2)); p.vline(x + w - 2, y, y + h - 1, P.brownDark);
+  for (let yy = y + 2; yy < y + h - 3; yy += 4) { p.set(x + 3 + (yy % 3), yy, P.brownDark); p.set(x + 3 + (yy % 3), yy + 1, P.brownDark); }
+  if (w >= 10) { p.vline(x + Math.floor(w / 2) + 1, y + 4, y + h - 4, P.brownDark); p.set(x + Math.floor(w / 2) + 2, y + 9, P.brownDark); }
   // raízes
-  p.rect(x - 2, y + h - 3, 3, 3, P.woodDark); p.rect(x + w - 1, y + h - 3, 3, 3, P.woodDark);
-  p.set(x - 2, y + h - 3, P.wood); p.set(x + w + 1, y + h - 2, P.brownDark);
+  const ry = y + h - 4;
+  p.rect(x - 3, ry, 4, 4, bark); p.rect(x + w - 1, ry, 4, 4, bark);
+  p.set(x - 3, ry, P.wood); p.set(x - 2, ry, P.wood); p.hline(x + w, x + w + 2, ry + 3, P.brownDark);
+  p.set(x - 4, ry + 3, bark); p.set(x + w + 3, ry + 3, bark);
+  // capim junto ao tronco
+  p.set(x - 5, ry + 3, P.grassDark); p.set(x - 4, ry + 2, P.grassLight); p.set(x + w + 4, ry + 3, P.grassDark); p.set(x + w + 4, ry + 2, P.grassLight);
 }
 
-/** Copa fofa: discos sobrepostos em três tons + "bolinhas" nas bordas. */
-function canopy(p: Pix, cx: number, cy: number, rx: number, ry: number, dark: Hex, mid: Hex, light: Hex, seed: number): void {
+/**
+ * Copa em cachos: silhueta cheia de "bolinhas" em 4 tons com luz vindo de cima/esquerda,
+ * cachos claros no topo, sombra em dithering na base e folhinhas soltas em toda a copa.
+ * Cada cacho é um disco com lado escuro (baixo/direita) e lado claro (cima/esquerda).
+ */
+function canopy(p: Pix, cx: number, cy: number, rx: number, ry: number, deep: Hex, dark: Hex, mid: Hex, light: Hex, seed: number): void {
   const r = rng(seed);
-  p.ellipse(cx, cy + 2, rx, ry, dark);
-  for (let a = 0; a < Math.PI * 2; a += 0.55) { const bx = Math.round(cx + Math.cos(a) * rx * 0.92); const by = Math.round(cy + 2 + Math.sin(a) * ry * 0.92); p.disc(bx, by, 3 + Math.floor(r() * 2), dark); }
-  p.ellipse(cx - 1, cy, rx - 3, ry - 3, mid);
-  for (let a = 0; a < Math.PI * 2; a += 0.7) { const bx = Math.round(cx - 1 + Math.cos(a) * (rx - 3) * 0.9); const by = Math.round(cy + Math.sin(a) * (ry - 3) * 0.9); p.disc(bx, by, 2 + Math.floor(r() * 2), mid); }
-  p.ellipse(cx - 4, cy - 4, Math.round(rx * 0.45), Math.round(ry * 0.4), light);
-  p.disc(cx - 8, cy - 6, 2, lighten(light, 0.2));
-  // folhas soltas: pontos de textura
-  for (let i = 0; i < 26; i++) {
+  const clump = (x: number, y: number, rad: number, base: Hex, hi: Hex) => {
+    p.disc(x, y, rad, base);
+    p.disc(x - Math.max(1, Math.round(rad * 0.3)), y - Math.max(1, Math.round(rad * 0.3)), Math.max(1, rad - 2), hi);
+  };
+  // massa escura de fundo com bolinhas na borda
+  p.ellipse(cx, cy + 2, rx, ry, deep);
+  for (let a = 0; a < Math.PI * 2; a += 0.5) {
+    const bx = Math.round(cx + Math.cos(a) * rx * 0.9); const by = Math.round(cy + 2 + Math.sin(a) * ry * 0.9);
+    p.disc(bx, by, 4 + Math.floor(r() * 3), deep);
+  }
+  // cachos escuros na metade inferior/direita
+  for (let i = 0; i < 7; i++) {
+    const a = Math.PI * 0.05 + r() * Math.PI * 0.9;
+    const bx = Math.round(cx + Math.cos(a) * rx * 0.55); const by = Math.round(cy + 2 + Math.sin(a) * ry * 0.55);
+    clump(bx, by, 5 + Math.floor(r() * 4), deep, dark);
+  }
+  // cachos médios espalhados
+  for (let i = 0; i < 9; i++) {
+    const a = r() * Math.PI * 2;
+    const d = 0.25 + r() * 0.5;
+    const bx = Math.round(cx + Math.cos(a) * rx * d); const by = Math.round(cy + Math.sin(a) * ry * d);
+    clump(bx, by, 5 + Math.floor(r() * 4), dark, mid);
+  }
+  // cachos claros no topo/esquerda (luz)
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI * 1.05 + r() * Math.PI * 0.75;
+    const d = 0.3 + r() * 0.45;
+    const bx = Math.round(cx + Math.cos(a) * rx * d); const by = Math.round(cy + Math.sin(a) * ry * d);
+    clump(bx, by, 4 + Math.floor(r() * 3), mid, light);
+  }
+  clump(cx - Math.round(rx * 0.35), cy - Math.round(ry * 0.45), 5, light, shade(light, 0.25));
+  // folhinhas soltas (textura): pares de pixels claros no lado da luz, escuros no lado da sombra
+  for (let i = 0; i < 40; i++) {
     const x = cx - rx + Math.floor(r() * rx * 2); const y = cy - ry + Math.floor(r() * ry * 2);
     if (!p.opaque(x, y)) continue;
     const hex = p.getHex(x, y);
-    p.set(x, y, r() < 0.5 ? darken(hex, 0.15) : lighten(hex, 0.15));
+    const lit = x < cx && y < cy + 4;
+    p.set(x, y, lit ? shade(hex, 0.22) : shade(hex, -0.22));
+    if (r() < 0.5) p.set(x + 1, y, lit ? shade(hex, 0.12) : shade(hex, -0.12));
   }
   // sombra da copa inferior em dithering
-  p.rectDither(cx - rx, cy + ry - 4, rx * 2, 5, darken(dark, 0.2), DITHER.checker);
+  p.rectDither(cx - rx, cy + ry - 5, rx * 2, 7, shade(deep, -0.25), DITHER.checker);
 }
 
+/** Carvalho grande: 64 × 96 (2 × 3 tiles), tronco largo e copa em cachos. */
 export function tree(seed = 1): Pix {
-  const p = new Pix(48, 64);
-  trunk(p, 20, 40, 8, 23);
-  canopy(p, 24, 24, 21, 19, P.grassDark, P.grass, P.grassLight, seed);
-  // frutinhas / flores ocasionais
+  const p = new Pix(64, 96);
+  trunk(p, 26, 58, 12, 36);
+  canopy(p, 32, 34, 29, 28, P.grassDeep, P.grassDark, P.grass, P.grassLight, seed);
   const r = rng(seed + 3);
-  for (let i = 0; i < 3; i++) { const x = 8 + Math.floor(r() * 32); const y = 12 + Math.floor(r() * 22); if (p.opaque(x, y)) { p.set(x, y, P.coral); p.set(x + 1, y, P.coralDark); } }
+  for (let i = 0; i < 4; i++) { const x = 10 + Math.floor(r() * 44); const y = 16 + Math.floor(r() * 36); if (p.opaque(x, y)) { p.set(x, y, P.coral); p.set(x + 1, y, P.coralDark); p.set(x, y - 1, P.coralLight); } }
   p.outline(P.outline);
   return p;
 }
 
+/** Árvore florida (praça): copa sálvia com flores rosa. */
 export function treeRound(seed = 2): Pix {
-  const p = new Pix(48, 64);
-  trunk(p, 21, 44, 6, 19);
-  canopy(p, 24, 26, 18, 18, P.sageDark, P.sage, P.sageLight, seed);
+  const p = new Pix(64, 96);
+  trunk(p, 27, 60, 10, 34);
+  canopy(p, 32, 36, 27, 27, shade(P.sageDark, -0.3), P.sageDark, P.sage, P.sageLight, seed);
   const r = rng(seed + 5);
-  for (let i = 0; i < 9; i++) { const x = 8 + Math.floor(r() * 32); const y = 12 + Math.floor(r() * 26); if (p.opaque(x, y)) { p.set(x, y, P.pink); p.set(x + 1, y, P.pinkDark); p.set(x, y - 1, P.white); } }
+  for (let i = 0; i < 16; i++) {
+    const x = 8 + Math.floor(r() * 48); const y = 12 + Math.floor(r() * 44);
+    if (!p.opaque(x, y) || !p.opaque(x + 1, y + 1)) continue;
+    p.set(x, y, P.pink); p.set(x + 1, y, P.pinkDark); p.set(x, y - 1, r() < 0.5 ? P.white : P.coralLight); p.set(x - 1, y, P.pink);
+  }
   p.outline(P.outline);
   return p;
 }
 
+/** Pinheiro: 48 × 96, três camadas de galhos com borda serrilhada e luz à esquerda. */
+export function treePine(seed = 4): Pix {
+  const p = new Pix(48, 96);
+  const r = rng(seed);
+  trunk(p, 20, 66, 8, 28);
+  const deep = shade(P.grassDeep, -0.15); const dark = shade(P.grassDark, -0.15); const mid = shade(P.grass, -0.12); const light = P.grassLight;
+  const tiers: Array<[number, number, number]> = [[76, 22, 26], [58, 18, 22], [40, 13, 18]]; // [base y, meia-largura, altura]
+  for (const [by, hw, h] of tiers) {
+    for (let i = 0; i < h; i++) {
+      const y = by - h + i;
+      const w = Math.round((i / h) * hw) + (i % 3 === 2 ? 1 : 0) + Math.floor(r() * 2);
+      const x0 = 24 - w; const x1 = 24 + w;
+      p.hline(x0, x1, y, dark);
+      p.hline(x0, Math.round(24 - w * 0.35), y, mid); // lado da luz
+      p.hline(Math.round(24 + w * 0.45), x1, y, deep); // lado da sombra
+      if (i % 4 === 1) { p.set(x0 + 1, y, light); p.set(x0 + 2, y, light); }
+    }
+    p.hline(24 - hw, 24 + hw, by, deep); p.rectDither(24 - hw + 2, by - 3, hw * 2 - 4, 3, deep, DITHER.checker);
+  }
+  p.triangle(24, 22, 6, mid); p.set(23, 24, light);
+  // agulhas soltas
+  for (let i = 0; i < 24; i++) { const x = 6 + Math.floor(r() * 36); const y = 26 + Math.floor(r() * 50); if (p.opaque(x, y)) p.set(x, y, x < 24 ? shade(p.getHex(x, y), 0.2) : shade(p.getHex(x, y), -0.2)); }
+  p.outline(P.outline);
+  return p;
+}
+
+/** Versões médias (48 × 64) para o interior dos mapas: a copa não invade as fileiras de cima. */
+export function treeMed(seed = 1): Pix {
+  const p = new Pix(48, 64);
+  trunk(p, 21, 40, 8, 22);
+  canopy(p, 24, 22, 21, 19, P.grassDeep, P.grassDark, P.grass, P.grassLight, seed);
+  const r = rng(seed + 3);
+  for (let i = 0; i < 3; i++) { const x = 8 + Math.floor(r() * 32); const y = 10 + Math.floor(r() * 24); if (p.opaque(x, y)) { p.set(x, y, P.coral); p.set(x + 1, y, P.coralDark); } }
+  p.outline(P.outline);
+  return p;
+}
+
+export function treeRoundMed(seed = 2): Pix {
+  const p = new Pix(48, 64);
+  trunk(p, 21, 42, 7, 20);
+  canopy(p, 24, 24, 20, 18, shade(P.sageDark, -0.3), P.sageDark, P.sage, P.sageLight, seed);
+  const r = rng(seed + 5);
+  for (let i = 0; i < 9; i++) { const x = 8 + Math.floor(r() * 32); const y = 10 + Math.floor(r() * 26); if (p.opaque(x, y) && p.opaque(x + 1, y + 1)) { p.set(x, y, P.pink); p.set(x + 1, y, P.pinkDark); p.set(x, y - 1, P.white); } }
+  p.outline(P.outline);
+  return p;
+}
+
+export function treePineMed(seed = 4): Pix {
+  const p = new Pix(48, 72);
+  const r = rng(seed);
+  trunk(p, 21, 52, 7, 18);
+  const deep = shade(P.grassDeep, -0.15); const dark = shade(P.grassDark, -0.15); const mid = shade(P.grass, -0.12); const light = P.grassLight;
+  const tiers: Array<[number, number, number]> = [[58, 19, 20], [44, 15, 17], [30, 11, 14]];
+  for (const [by, hw, h] of tiers) {
+    for (let i = 0; i < h; i++) {
+      const y = by - h + i;
+      const w = Math.round((i / h) * hw) + (i % 3 === 2 ? 1 : 0) + Math.floor(r() * 2);
+      const x0 = 24 - w; const x1 = 24 + w;
+      p.hline(x0, x1, y, dark);
+      p.hline(x0, Math.round(24 - w * 0.35), y, mid);
+      p.hline(Math.round(24 + w * 0.45), x1, y, deep);
+      if (i % 4 === 1) { p.set(x0 + 1, y, light); p.set(x0 + 2, y, light); }
+    }
+    p.hline(24 - hw, 24 + hw, by, deep); p.rectDither(24 - hw + 2, by - 3, hw * 2 - 4, 3, deep, DITHER.checker);
+  }
+  p.triangle(24, 12, 5, mid); p.set(23, 14, light);
+  for (let i = 0; i < 16; i++) { const x = 8 + Math.floor(r() * 32); const y = 16 + Math.floor(r() * 40); if (p.opaque(x, y)) p.set(x, y, x < 24 ? shade(p.getHex(x, y), 0.2) : shade(p.getHex(x, y), -0.2)); }
+  p.outline(P.outline);
+  return p;
+}
+
+/** Arbusto redondo em cachos com frutinhas. */
 export function bush(): Pix {
   const p = new Pix(32, 32);
-  p.ellipseBlend(16, 29, 13, 3, P.black, 60);
-  p.ellipse(16, 20, 14, 9, P.grassDark);
-  p.disc(5, 20, 4, P.grassDark); p.disc(27, 21, 4, P.grassDark); p.disc(10, 13, 4, P.grassDark); p.disc(22, 13, 4, P.grassDark);
-  p.ellipse(15, 18, 11, 7, P.grass);
-  p.disc(9, 14, 3, P.grass); p.disc(21, 14, 3, P.grass);
-  p.ellipse(11, 15, 5, 3, P.grassLight); p.set(8, 13, lighten(P.grassLight, 0.2));
-  p.rectDither(3, 24, 26, 4, darken(P.grassDark, 0.2), DITHER.checker);
-  p.set(20, 18, P.coral); p.set(24, 22, P.coral); p.set(13, 22, P.coral);
+  p.ellipseBlend(16, 29, 13, 3, P.black, 70);
+  canopy(p, 16, 18, 14, 9, P.grassDeep, P.grassDark, P.grass, P.grassLight, 21);
+  p.set(20, 18, P.coral); p.set(21, 18, P.coralDark); p.set(24, 22, P.coral); p.set(13, 22, P.coral); p.set(9, 16, P.coral); p.set(10, 16, P.coralDark);
   p.outline(P.outline);
   return p;
 }
@@ -775,7 +891,12 @@ export function signOk(): Pix {
 function wallWithBase(p: Pix, x: number, y: number, w: number, h: number, plaster: Hex, restored: boolean, seed: number): void {
   p.rect(x, y, w, h, plaster);
   const r = rng(seed);
-  for (let i = 0; i < w * h * 0.02; i++) p.set(x + Math.floor(r() * w), y + Math.floor(r() * h), r() < 0.5 ? darken(plaster, 0.06) : lighten(plaster, 0.06));
+  for (let i = 0; i < w * h * 0.02; i++) p.set(x + Math.floor(r() * w), y + Math.floor(r() * h), r() < 0.5 ? shade(plaster, -0.06) : shade(plaster, 0.07));
+  // sombra do beiral no topo da parede (degradê em dithering) e luz rasante à esquerda
+  p.rect(x, y, w, 2, shade(plaster, -0.28));
+  p.rectDither(x, y + 2, w, 2, shade(plaster, -0.28), DITHER.checker);
+  p.rectDither(x, y + 4, w, 2, shade(plaster, -0.16), DITHER.sparse);
+  p.rectDither(x + w - 6, y, 6, h - 12, shade(plaster, -0.14), DITHER.checker);
   // base de pedra
   const bh = 8;
   for (let bx = x; bx < x + w; bx += 10) stoneBlock(p, bx, y + h - bh, Math.min(10, x + w - bx), bh, restored ? P.stone : mix(P.stone, P.gray, 0.3));
@@ -912,301 +1033,6 @@ export function houseAbandoned(seed: number): Pix { return house(seed, false); }
 export function houseRestored(seed: number): Pix { return house(seed, true); }
 
 // ---------------------------------------------------------------------------
-// Mobílias (32 × 32, vistas de cima com leve inclinação) — 4 orientações
-// ---------------------------------------------------------------------------
-// Cada gerador recebe a orientação (para onde a "frente" do móvel aponta) e
-// desenha o objeto visto daquele ângulo. Móveis de parede (prateleira, vitrine,
-// cortina, quadro) ficam sempre encostados na parede norte, então só há duas
-// variantes: sul/norte (arranjo normal) e leste/oeste (arranjo dos objetos
-// invertido). Tapete e almofada são simétricos: sul/norte e leste/oeste
-// diferem só pela direção do padrão.
-
-function furnShadow(p: Pix, cx: number, cy: number, rx: number, ry: number): void { p.ellipseBlend(cx, cy, rx, ry, P.black, 55); }
-
-export function furnBed(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  const frame = P.woodDark; const frameL = P.wood; const sheet = P.cream; const quilt = P.lilac; const quiltD = P.lilacDark; const quiltL = P.lilacLight;
-  if (f === 'south' || f === 'north') {
-    furnShadow(p, 16, 29, 13, 3);
-    p.rrectR(3, 2, 26, 28, 2, frame);
-    p.hline(4, 27, 2, frameL); p.vline(3, 3, 28, frameL);
-    p.rect(5, 4, 22, 24, sheet);
-    const pillowTop = f === 'south';
-    const qy = pillowTop ? 12 : 4; const qh = pillowTop ? 16 : 16;
-    p.rect(5, qy, 22, qh, quilt);
-    p.hline(5, 26, pillowTop ? qy : qy + qh - 1, quiltD);
-    for (let y = qy + 3; y < qy + qh - 1; y += 4) p.hline(7, 24, y, quiltL, 160);
-    for (let x = 9; x < 26; x += 5) p.vline(x, qy + 1, qy + qh - 2, quiltL, 110);
-    p.vline(26, qy + 1, qy + qh - 2, quiltD);
-    if (pillowTop) { p.rrectR(8, 5, 16, 6, 2, P.white); p.hline(9, 22, 10, P.creamDark); p.set(9, 6, lighten(P.white, 0.1)); p.rect(3, 0, 26, 3, frame); p.hline(4, 27, 0, frameL); }
-    else { p.rrectR(8, 21, 16, 6, 2, P.white); p.hline(9, 22, 26, P.creamDark); p.rect(3, 28, 26, 4, frame); p.hline(4, 27, 28, frameL); p.hline(4, 27, 31, P.brownDark); }
-  } else {
-    furnShadow(p, 16, 28, 14, 3);
-    p.rrectR(1, 5, 30, 22, 2, frame);
-    p.hline(2, 29, 5, frameL); p.vline(1, 6, 25, frameL);
-    p.rect(3, 7, 26, 18, sheet);
-    const pillowLeft = f === 'east';
-    const qx = pillowLeft ? 12 : 3; const qw = 17;
-    p.rect(qx, 7, qw, 18, quilt);
-    p.vline(pillowLeft ? qx : qx + qw - 1, 7, 24, quiltD);
-    for (let x = qx + 3; x < qx + qw - 1; x += 4) p.vline(x, 9, 22, quiltL, 160);
-    for (let y = 11; y < 24; y += 5) p.hline(qx + 1, qx + qw - 2, y, quiltL, 110);
-    p.hline(qx + 1, qx + qw - 2, 24, quiltD);
-    if (pillowLeft) { p.rrectR(4, 9, 6, 14, 2, P.white); p.vline(9, 10, 21, P.creamDark); p.rect(0, 5, 3, 22, frame); p.vline(0, 6, 25, frameL); }
-    else { p.rrectR(22, 9, 6, 14, 2, P.white); p.vline(27, 10, 21, P.creamDark); p.rect(29, 5, 3, 22, frame); p.vline(31, 6, 25, P.brownDark); }
-  }
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnLamp(magic: boolean, f: Facing): Pix {
-  const p = new Pix(32, 32);
-  const shade = magic ? P.lilacLight : P.mustardLight; const shadeD = magic ? P.lilac : P.mustard; const shadeDD = magic ? P.lilacDark : P.mustardDark;
-  furnShadow(p, 16, 29, 8, 2);
-  p.ellipse(16, 27, 6, 2, P.woodDark); p.ellipse(16, 26, 5, 1, P.wood);
-  p.rect(15, 14, 2, 12, P.wood); p.vline(15, 14, 25, P.woodLight); p.vline(16, 14, 25, P.woodDark);
-  // cúpula com volume
-  p.rect(8, 6, 16, 10, shade);
-  p.rect(8, 4, 16, 3, shadeD); p.hline(9, 22, 4, lighten(shadeD, 0.2));
-  p.rectDither(19, 7, 5, 9, shadeD, DITHER.checker);
-  p.vline(23, 7, 15, shadeD);
-  p.rect(9, 15, 14, 2, shadeDD);
-  p.set(10, 8, P.white); p.set(11, 8, P.white); p.set(10, 9, P.white, 160);
-  // cordinha do interruptor muda de lado conforme a orientação
-  const cordX = f === 'east' ? 24 : f === 'west' ? 7 : f === 'north' ? 16 : 19;
-  const cordY = f === 'north' ? 17 : 17;
-  p.vline(cordX, cordY, cordY + 4, P.grayDark); p.set(cordX, cordY + 5, magic ? P.amber : P.brownDark);
-  // brilho
-  p.rectBlend(6, 10, 20, 12, shade, 40);
-  if (magic) { p.set(4, 4, P.amber); p.set(27, 8, P.amber); p.set(6, 20, P.amber); p.set(26, 18, P.white); }
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnChair(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  const wood = P.wood; const woodD = P.woodDark; const woodL = P.woodLight; const cushion = P.coral;
-  furnShadow(p, 16, 29, 9, 2);
-  const seat = (x: number, y: number, w: number, h: number) => {
-    p.rrectR(x, y, w, h, 2, wood); p.hline(x + 1, x + w - 2, y, woodL); p.vline(x + w - 1, y + 1, y + h - 2, woodD); p.hline(x + 1, x + w - 2, y + h - 1, woodD);
-    p.rrectR(x + 2, y + 2, w - 4, h - 4, 2, cushion); p.hline(x + 3, x + w - 4, y + 2, P.coralLight); p.vline(x + w - 3, y + 3, y + h - 4, P.coralDark); p.hline(x + 3, x + w - 4, y + h - 3, P.coralDark);
-    p.set(x + Math.floor(w / 2), y + Math.floor(h / 2), P.coralDark);
-  };
-  const legs = (pts: number[][]) => pts.forEach(([x, y, h]) => { p.rect(x, y, 3, h, woodD); p.vline(x, y, y + h - 1, wood); });
-  if (f === 'south') {
-    // encosto atrás (em cima), assento à frente
-    p.rrectR(8, 3, 16, 8, 2, woodD); p.rect(9, 4, 14, 5, wood); p.hline(9, 22, 4, woodL); p.vline(12, 5, 8, woodD); p.vline(19, 5, 8, woodD);
-    p.rect(8, 10, 2, 4, woodD); p.rect(22, 10, 2, 4, woodD);
-    seat(7, 12, 18, 12);
-    legs([[8, 24, 5], [21, 24, 5]]);
-  } else if (f === 'north') {
-    // costas do encosto na frente (cobre parte do assento)
-    seat(7, 6, 18, 11);
-    legs([[8, 17, 4], [21, 17, 4]]);
-    p.rect(8, 14, 2, 4, woodD); p.rect(22, 14, 2, 4, woodD);
-    p.rrectR(7, 17, 18, 11, 2, woodD); p.rect(8, 18, 16, 8, wood); p.hline(8, 23, 18, woodL); p.hline(8, 23, 26, woodD);
-    p.vline(12, 19, 25, woodD); p.vline(19, 19, 25, woodD); p.vline(15, 19, 25, woodD);
-  } else {
-    const east = f === 'east';
-    // encosto na lateral de trás; assento à frente
-    const bx = east ? 6 : 20;
-    p.rrectR(bx, 4, 6, 18, 2, woodD); p.rect(bx + 1, 5, 4, 16, wood); p.vline(bx + 1, 5, 20, woodL); p.hline(bx + 2, bx + 4, 10, woodD); p.hline(bx + 2, bx + 4, 15, woodD);
-    seat(east ? 10 : 7, 12, 15, 11);
-    legs(east ? [[11, 23, 6], [20, 23, 5]] : [[8, 23, 5], [17, 23, 6]]);
-  }
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnTable(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  furnShadow(p, 16, 29, 12, 3);
-  // tampo redondo com espessura
-  p.ellipse(16, 15, 13, 8, P.woodDark);
-  p.ellipse(16, 13, 13, 8, P.wood);
-  p.ellipse(16, 12, 11, 6, P.woodLight);
-  p.ellipse(15, 11, 7, 3, lighten(P.woodLight, 0.15));
-  p.rrectR(9, 9, 14, 8, 3, P.cream); p.hline(10, 21, 9, P.creamLight); p.hline(10, 21, 16, P.creamDark); // toalhinha
-  // pernas
-  [[6, 19], [24, 19], [15, 21]].forEach(([x, y]) => { p.rect(x, y, 3, 8, P.woodDark); p.vline(x, y, y + 7, P.wood); });
-  // xícara e pires + bule: posição gira com a orientação
-  const pos = { south: [16, 13, 11, 10], east: [20, 12, 12, 13], north: [16, 11, 21, 14], west: [12, 12, 20, 11] }[f];
-  const [cx, cy, tx, ty] = pos;
-  p.disc(cx, cy, 3, P.white); p.disc(cx, cy, 2, P.teal); p.set(cx - 1, cy - 1, P.tealLight); p.set(cx + 3, cy, P.white);
-  p.rrectR(tx - 2, ty - 2, 5, 4, 1, P.pink); p.set(tx, ty - 3, P.pinkDark); p.set(tx + 3, ty - 1, P.pinkDark); p.set(tx - 1, ty - 1, P.coralLight);
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnShelf(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  const flip = f === 'east' || f === 'west';
-  p.rect(2, 2, 28, 28, P.woodDark);
-  p.rect(4, 4, 24, 24, P.wood); p.vline(4, 4, 27, P.woodLight);
-  plank(p, 3, 11, 26, 3, P.wood, 1); plank(p, 3, 19, 26, 3, P.wood, 2); plank(p, 3, 27, 26, 3, P.wood, 3);
-  p.rectDither(5, 14, 22, 2, P.brownDark, DITHER.checker, 120); p.rectDither(5, 22, 22, 2, P.brownDark, DITHER.checker, 120);
-  const items = (x0: number, dir: number) => {
-    const at = (x: number) => (dir > 0 ? x0 + x : x0 - x);
-    p.rect(at(0), 5, 4, 6, P.teal); p.vline(at(0), 5, 10, P.tealLight); p.rect(at(1), 4, 2, 1, P.tealDark);
-    p.rect(at(5), 6, 3, 5, P.coral); p.rect(at(9), 4, 5, 7, P.lilac); p.vline(at(9), 4, 10, P.lilacLight); p.rect(at(10), 6, 3, 1, P.amber);
-    p.rect(at(15), 5, 4, 6, P.sage); p.rect(at(16), 4, 2, 1, P.sageDark);
-    p.rect(at(1), 13, 6, 6, P.mustard); p.hline(at(1), at(6), 13, P.mustardLight); p.rect(at(2), 12, 4, 1, P.mustardDark);
-    p.rect(at(9), 14, 8, 5, P.sage); p.rect(at(10), 15, 6, 1, P.sageLight);
-    p.rect(at(19), 15, 4, 4, P.cream); p.set(at(20), 16, P.coral);
-    p.rect(at(2), 21, 5, 6, P.pink); p.rect(at(8), 22, 4, 5, P.cream); p.rect(at(13), 23, 6, 4, P.lilacLight); p.rect(at(20), 21, 3, 6, P.coralDark);
-  };
-  items(flip ? 22 : 6, flip ? -1 : 1);
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnVitrine(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  const flip = f === 'east' || f === 'west';
-  p.rect(1, 1, 30, 30, P.woodDark); p.hline(2, 29, 1, P.wood);
-  p.rect(3, 3, 26, 26, P.sky);
-  p.rectDither(3, 3, 8, 26, lighten(P.sky, 0.3), DITHER.checker); p.vline(4, 4, 27, P.white); p.vline(5, 4, 20, P.white, 160);
-  plank(p, 3, 14, 26, 2, P.wood, 4); plank(p, 3, 26, 26, 3, P.wood, 5);
-  const at = (x: number) => (flip ? 29 - x : x);
-  const cake = (x: number, y: number, c: Hex, top: Hex) => { p.rect(at(x) - (flip ? 5 : 0), y, 6, 5, c); p.hline(at(x) - (flip ? 5 : 0), at(x) + (flip ? 0 : 5), y, lighten(c, 0.3)); p.rect(at(x) + (flip ? -4 : 1), y - 2, 4, 2, top); p.set(at(x) + (flip ? -2 : 3), y - 3, P.red); };
-  cake(5, 9, P.pink, P.coral); cake(13, 10, P.cream, P.mustard); cake(21, 9, P.lilac, P.lilacLight);
-  p.rect(at(flip ? 12 : 5), 20, 8, 6, P.coralLight); p.hline(at(flip ? 12 : 5), at(flip ? 12 : 5) + 7, 20, P.white); p.rect(at(flip ? 25 : 15), 21, 10, 5, P.mustardLight); p.set(at(flip ? 21 : 19), 22, P.coral);
-  p.rect(at(flip ? 27 : 2), 24, 3, 2, P.creamDark); // etiqueta de preço
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnBench(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  furnShadow(p, 16, 29, 14, 3);
-  const slat = (x: number, y: number, w: number, h: number, c: Hex = P.wood) => { p.rect(x, y, w, h, c); p.hline(x, x + w - 1, y, lighten(c, 0.25)); p.hline(x, x + w - 1, y + h - 1, darken(c, 0.3)); };
-  if (f === 'south') {
-    slat(2, 6, 28, 4); slat(2, 11, 28, 3); // encosto
-    p.rect(4, 14, 3, 3, P.woodDark); p.rect(25, 14, 3, 3, P.woodDark);
-    slat(2, 17, 28, 4, P.woodLight); slat(2, 21, 28, 4);
-    p.rect(3, 25, 3, 5, P.woodDark); p.vline(3, 25, 29, P.wood); p.rect(26, 25, 3, 5, P.woodDark); p.vline(26, 25, 29, P.wood);
-  } else if (f === 'north') {
-    slat(2, 8, 28, 4, P.woodLight); slat(2, 12, 28, 3);
-    p.rect(3, 15, 3, 3, P.woodDark); p.rect(26, 15, 3, 3, P.woodDark);
-    slat(2, 18, 28, 4); slat(2, 23, 28, 4, P.woodDark); // encosto por trás cobrindo
-    p.rect(3, 27, 3, 3, P.woodDark); p.rect(26, 27, 3, 3, P.woodDark);
-  } else {
-    const east = f === 'east';
-    const bx = east ? 6 : 22;
-    p.rect(bx, 3, 4, 24, P.woodDark); p.vline(bx + (east ? 0 : 3), 3, 26, P.wood); p.vline(bx + (east ? 1 : 2), 4, 25, P.woodLight);
-    for (let y = 6; y < 26; y += 5) p.hline(bx, bx + 3, y, P.brownDark);
-    const sx = east ? 11 : 8;
-    p.rect(sx, 5, 13, 22, P.wood); p.vline(sx, 5, 26, P.woodLight); p.vline(sx + 12, 5, 26, P.woodDark);
-    for (let y = 9; y < 26; y += 6) p.hline(sx + 1, sx + 11, y, P.woodDark);
-    p.rect(sx + 1, 27, 3, 3, P.woodDark); p.rect(sx + 9, 27, 3, 3, P.woodDark);
-  }
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnVase(magic: boolean, f: Facing): Pix {
-  const p = new Pix(32, 32);
-  furnShadow(p, 16, 30, 7, 2);
-  const pot = magic ? P.lilacDark : P.coralDark; const potL = magic ? P.lilac : P.coral;
-  p.rrectR(10, 18, 12, 12, 3, pot);
-  p.rect(9, 17, 14, 3, potL); p.hline(9, 22, 17, lighten(potL, 0.3));
-  p.vline(11, 21, 27, lighten(pot, 0.2)); p.vline(20, 21, 28, darken(pot, 0.3)); p.hline(12, 20, 29, darken(pot, 0.3));
-  p.rect(13, 23, 6, 2, magic ? P.lilacLight : P.mustardLight); // faixa decorativa
-  const cols = magic ? [P.lilacLight, P.white, P.lilacLight] : [P.coral, P.mustardLight, P.pink];
-  const arr: Record<Facing, number[][]> = { south: [[9, 10], [16, 6], [23, 10]], east: [[11, 8], [18, 5], [23, 12]], north: [[10, 7], [16, 11], [22, 7]], west: [[9, 12], [14, 5], [21, 8]] };
-  arr[f].forEach(([x, y], i) => flower(p, x, y, cols[i], 18, magic ? P.white : P.amber));
-  p.set(15, 15, P.grass); p.set(17, 14, P.grassDark);
-  if (magic) { p.set(5, 5, P.amber); p.set(27, 3, P.amber); p.set(26, 15, P.white); }
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnRug(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  const vert = f === 'east' || f === 'west';
-  const draw = (q: Pix) => {
-    q.rrectR(1, 3, 30, 26, 3, P.coralDark);
-    q.rrectR(3, 5, 26, 22, 2, P.coral);
-    q.rrectR(6, 8, 20, 16, 2, P.mustardLight);
-    q.rrectR(9, 11, 14, 10, 2, P.coral);
-    q.rect(12, 14, 8, 4, P.cream); q.set(15, 15, P.coralDark); q.set(16, 16, P.coralDark);
-    for (let x = 4; x < 28; x += 3) { q.set(x, 6, P.coralLight); q.set(x + 1, 25, P.coralLight); }
-    for (let y = 7; y < 25; y += 3) { q.set(4, y, P.coralLight); q.set(27, y + 1, P.coralLight); }
-    // franjas
-    for (let x = 3; x < 29; x += 2) { q.set(x, 2, P.cream); q.set(x, 29, P.cream); }
-  };
-  if (!vert) draw(p); else { const t = new Pix(32, 32); draw(t); p.blit(t.rotated(1), 0, 0); }
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnCushion(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  furnShadow(p, 16, 27, 10, 2);
-  const c = P.teal; const cL = P.tealLight; const cD = P.tealDark;
-  p.rrectR(6, 7, 20, 18, 5, cD);
-  p.rrectR(7, 8, 18, 15, 4, c);
-  p.rrectR(9, 10, 14, 10, 3, cL);
-  p.rectDither(9, 10, 14, 10, c, DITHER.sparse);
-  // pregas apontam conforme a orientação
-  const folds = f === 'south' || f === 'north' ? [[16, 11, 16, 14], [12, 13, 14, 15], [20, 13, 18, 15]] : [[11, 15, 14, 15], [13, 12, 15, 14], [13, 18, 15, 16]];
-  folds.forEach(([x0, y0, x1, y1]) => p.line(x0, y0, x1, y1, cD));
-  p.set(16, 15, P.white); p.set(17, 15, P.white); p.set(16, 16, P.creamDark);
-  // borlas
-  [[6, 7], [25, 7], [6, 24], [25, 24]].forEach(([x, y]) => { p.set(x, y, P.mustardLight); p.set(x, y + (y < 16 ? -1 : 1), P.mustard); });
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnCurtain(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  const flip = f === 'east' || f === 'west';
-  p.rect(1, 1, 30, 4, P.woodDark); p.hline(2, 29, 1, P.wood); p.set(1, 2, P.woodLight); p.set(30, 2, P.woodLight);
-  for (let x = 3; x < 29; x += 4) {
-    const c = ((x - 3) / 4) % 2 ? P.sage : P.sageLight;
-    p.rect(x, 5, 4, 24, c); p.vline(x, 5, 28, lighten(c, 0.15)); p.vline(x + 3, 5, 28, darken(c, 0.2));
-    p.set(x + 1, 28, darken(c, 0.25)); p.set(x + 2, 29, darken(c, 0.25));
-  }
-  // abraçadeira e laço (lado muda com a orientação)
-  const tx = flip ? 19 : 9;
-  p.rect(3, 16, 26, 2, P.sageDark);
-  p.rect(tx, 15, 6, 4, P.mustard); p.hline(tx, tx + 5, 15, P.mustardLight); p.set(tx + 2, 19, P.mustardDark); p.set(tx + 3, 19, P.mustardDark);
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnPainting(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  const flip = f === 'east' || f === 'west';
-  p.rect(3, 4, 26, 24, P.mustardDark);
-  p.hline(3, 28, 4, P.mustardLight); p.vline(3, 4, 27, P.mustardLight); p.hline(3, 28, 27, darken(P.mustardDark, 0.3)); p.vline(28, 4, 27, darken(P.mustardDark, 0.3));
-  for (let i = 5; i < 27; i += 4) { p.set(i, 5, P.mustard); p.set(i, 26, P.mustard); }
-  p.rect(6, 7, 20, 18, P.sky);
-  p.rectDither(6, 12, 20, 3, P.sageLight, DITHER.checker); p.rect(6, 15, 20, 10, P.sage);
-  const hx = flip ? 15 : 9;
-  p.rect(hx, 12, 9, 10, P.lilac); p.rect(hx - 1, 9, 11, 4, P.lilacDark); p.set(hx + 4, 8, P.lilacDark); p.rect(hx + 3, 17, 3, 5, P.woodDark); p.set(hx + 1, 15, P.amber);
-  p.disc(flip ? 10 : 22, 10, 2, P.amber); p.set(flip ? 9 : 21, 9, P.white);
-  p.set(flip ? 22 : 8, 20, P.coral); p.set(flip ? 24 : 10, 22, P.pink);
-  p.outline(P.outline);
-  return p;
-}
-
-export function furnStool(f: Facing): Pix {
-  const p = new Pix(32, 32);
-  furnShadow(p, 16, 29, 8, 2);
-  p.ellipse(16, 15, 9, 5, P.woodDark);
-  p.ellipse(16, 13, 9, 5, P.woodLight);
-  p.ellipse(15, 12, 6, 3, lighten(P.woodLight, 0.15));
-  p.hline(9, 22, 17, darken(P.woodDark, 0.2));
-  const side = f === 'east' || f === 'west';
-  const legs = side ? [[10, 18, 9], [20, 18, 9], [15, 19, 8]] : [[9, 17, 10], [20, 17, 10], [15, 18, 9]];
-  legs.forEach(([x, y, h]) => { p.rect(x, y, 3, h, P.woodDark); p.vline(x, y, y + h - 1, P.wood); });
-  p.hline(12, 19, 24, P.woodDark); // travessa
-  p.outline(P.outline);
-  return p;
-}
-
-// ---------------------------------------------------------------------------
 // Ícones de itens (16 × 16)
 // ---------------------------------------------------------------------------
 
@@ -1298,6 +1124,52 @@ export function lightBeam(): Pix {
   }
   return p;
 }
+/** Sombra de nuvem: mancha grande e suave (azul-escura translúcida) que passeia pelo mapa. */
+export function cloudShadow(seed: number): Pix {
+  const p = new Pix(192, 112);
+  const r = rng(seed);
+  const n = 6 + Math.floor(r() * 4);
+  for (let i = 0; i < n; i++) {
+    const x = 30 + Math.floor(r() * 132); const y = 30 + Math.floor(r() * 52);
+    const rx = 22 + Math.floor(r() * 30); const ry = 14 + Math.floor(r() * 16);
+    p.ellipseBlend(x, y, rx, ry, '#1e2a5a', 70);
+  }
+  // borda em dithering para a sombra não parecer um recorte
+  const out = new Pix(p.w, p.h);
+  for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) {
+    const a = p.get(x, y)[3];
+    if (a === 0) continue;
+    const edge = !p.opaque(x - 2, y) || !p.opaque(x + 2, y) || !p.opaque(x, y - 2) || !p.opaque(x, y + 2);
+    if (edge && !DITHER.checker(x, y)) continue;
+    out.set(x, y, '#1e2a5a', Math.min(110, a));
+  }
+  return out;
+}
+/** Vinheta de tela: escurece os cantos (desenhada em baixa resolução e esticada pelo HUD). */
+export function vignette(): Pix {
+  const p = new Pix(320, 180);
+  for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) {
+    const nx = (x + 0.5) / p.w * 2 - 1; const ny = (y + 0.5) / p.h * 2 - 1;
+    const d = Math.sqrt(nx * nx * 0.9 + ny * ny * 1.1);
+    const a = Math.max(0, d - 0.55) / 0.85;
+    if (a <= 0) continue;
+    p.set(x, y, '#1a1230', Math.round(Math.min(1, a * a) * 200));
+  }
+  return p;
+}
+/** Halo de luz quente (aditivo) para lampiões e janelas. */
+export function glow(): Pix {
+  const p = new Pix(64, 64);
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+    const d = Math.hypot(x - 31.5, y - 31.5) / 32;
+    if (d >= 1) continue;
+    const a = Math.round(Math.pow(1 - d, 2.2) * 150);
+    if (a < 4) continue;
+    if (d > 0.8 && !DITHER.checker(x, y)) continue;
+    p.set(x, y, '#ffc857', a);
+  }
+  return p;
+}
 export function mote(): Pix { const p = new Pix(3, 3); p.set(1, 1, P.white, 220); p.set(0, 1, P.cream, 120); p.set(2, 1, P.cream, 120); p.set(1, 0, P.cream, 120); p.set(1, 2, P.cream, 120); return p; }
 export function cloud(seed: number): Pix {
   const p = new Pix(64, 28);
@@ -1350,24 +1222,6 @@ export function busSide(): Pix {
   return p;
 }
 
-/** Geradores de mobília por id (recebem a orientação). */
-export const FURNITURE_GENERATORS: Record<string, (f: Facing) => Pix> = {
-  furn_cama: furnBed,
-  furn_luminaria: (f) => furnLamp(false, f),
-  furn_luminaria_encantada: (f) => furnLamp(true, f),
-  furn_cadeira: furnChair,
-  furn_mesa_cha: furnTable,
-  furn_prateleira: furnShelf,
-  furn_vitrine: furnVitrine,
-  furn_banco: furnBench,
-  furn_vaso_flores: (f) => furnVase(false, f),
-  furn_vaso_encantado: (f) => furnVase(true, f),
-  furn_tapete: furnRug,
-  furn_almofada: furnCushion,
-  furn_cortina: furnCurtain,
-  furn_quadro: furnPainting,
-  furn_banquinho: furnStool,
-};
 
 const furnitureEntries: Record<string, () => Pix> = {};
 for (const [id, gen] of Object.entries(FURNITURE_GENERATORS)) {
@@ -1379,7 +1233,8 @@ export const OBJECT_GENERATORS: Record<string, () => Pix> = {
   crate, cobweb, windowClosed, windowOpen, photo, benchBroken, benchOk, sewingBroken, sewingOk, paintBroken, paintOk,
   notebookStand, shelfOld, dustPile,
   leavesPile: () => leavesPile(1), leavesPile2: () => leavesPile(2),
-  tree: () => tree(1), tree2: () => tree(2), treeRound: () => treeRound(3), bush,
+  tree: () => tree(1), tree2: () => tree(2), treeRound: () => treeRound(3), treePine: () => treePine(4), treePine2: () => treePine(5),
+  treeMed: () => treeMed(6), treeMed2: () => treeMed(7), treeRoundMed: () => treeRoundMed(8), treePineMed: () => treePineMed(9), treePineMed2: () => treePineMed(10), bush,
   nodeWood: nodeWood, nodeStone: nodeStone, nodeLeaves: nodeLeaves, nodeFiber: nodeFiber, nodeFlower: nodeFlower, nodeDust: nodeDust, nodeMoonFlower: nodeMoonFlower,
   fallenLog, shrine, lamppost,
   fountainDry, fountainFlow0: () => fountainFlow(0), fountainFlow1: () => fountainFlow(1),
@@ -1398,6 +1253,8 @@ export const OBJECT_GENERATORS: Record<string, () => Pix> = {
   fx_petal0: () => petal(0), fx_petal1: () => petal(1), fx_petal2: () => petal(2),
   fx_firefly: firefly, fx_puff: dustPuff, fx_beam: lightBeam, fx_mote: mote,
   fx_cloud0: () => cloud(1), fx_cloud1: () => cloud(2), fx_cloud2: () => cloud(3),
+  fx_cloudShadow0: () => cloudShadow(11), fx_cloudShadow1: () => cloudShadow(12), fx_cloudShadow2: () => cloudShadow(13),
+  fx_vignette: vignette, fx_glow: glow,
 };
 
 /** Objetos que NÃO recebem a variante desbotada (UI, ícones, efeitos). */

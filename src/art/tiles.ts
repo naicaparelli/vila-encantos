@@ -1,4 +1,4 @@
-import { P, darken, lighten, mix, type Hex } from './palette';
+import { P, darken, lighten, mix, shade, type Hex } from './palette';
 import { Pix, rng, DITHER } from './pix';
 import { TILE } from '../config';
 
@@ -6,13 +6,14 @@ import { TILE } from '../config';
  * Tiles de 32 px usados nos mapas. Cada função devolve um Pix.
  * Os tiles de terreno são desenhados com `wrap = true`: manchas e tufos que
  * atravessam a borda continuam do outro lado, então não há emendas na grade.
+ * Sombras usam `shade()` (desvio para azul) e luzes puxam para amarelo.
  */
 
 const T = TILE;
-const GRASS_MID = mix(P.grass, P.grassDark, 0.45);
-const GRASS_HI = mix(P.grass, P.grassLight, 0.55);
-const DIRT_MID = mix(P.dirt, P.dirtDark, 0.45);
-const WATER_MID = mix(P.water, P.waterDark, 0.5);
+const GRASS_MID = shade(P.grass, -0.16);
+const GRASS_HI = shade(P.grass, 0.18);
+const DIRT_MID = shade(P.dirt, -0.14);
+const WATER_MID = shade(P.water, -0.18);
 
 function base(color: Hex): Pix {
   const p = new Pix(T, T);
@@ -45,9 +46,15 @@ function tuft(p: Pix, x: number, y: number, dark: Hex, light: Hex, kind: number)
   } else if (kind === 1) {
     // duas folhas inclinadas
     p.set(x, y, dark); p.set(x + 1, y - 1, dark); p.set(x + 2, y - 2, light); p.set(x - 1, y - 1, dark);
-  } else {
+  } else if (kind === 2) {
     // pequeno "v"
     p.set(x - 1, y - 1, dark); p.set(x + 1, y - 1, dark); p.set(x, y, dark); p.set(x, y - 2, light, 200);
+  } else if (kind === 3) {
+    // pincelada curta em arco (folha de capim deitada)
+    p.set(x, y, dark); p.set(x + 1, y - 1, dark); p.set(x + 2, y - 1, dark); p.set(x + 3, y - 2, light);
+  } else {
+    // pincelada curta invertida
+    p.set(x, y, dark); p.set(x - 1, y - 1, dark); p.set(x - 2, y - 1, dark); p.set(x - 3, y - 2, light);
   }
 }
 
@@ -58,20 +65,25 @@ function tuft(p: Pix, x: number, y: number, dark: Hex, light: Hex, kind: number)
 export function tileGrass(seed = 1): Pix {
   const p = base(P.grass);
   const r = rng(seed);
-  blobs(p, r, 3, 3, 6, GRASS_MID);
+  // manchas grandes e suaves (variação de relevo) + manchas claras menores
+  blobs(p, r, 2, 5, 9, GRASS_MID);
   blobs(p, r, 2, 2, 4, GRASS_HI);
-  speckle(p, seed + 1, [GRASS_MID, GRASS_HI, P.grassDark], 0.035);
-  for (let i = 0; i < 7; i++) {
+  blobs(p, r, 1, 2, 3, shade(P.grass, -0.3));
+  speckle(p, seed + 1, [GRASS_MID, GRASS_HI, P.grassDark], 0.03);
+  // pinceladas de capim: muitas escuras curtas, poucas claras (como na referência)
+  for (let i = 0; i < 11; i++) {
     const x = Math.floor(r() * T);
     const y = Math.floor(r() * T);
-    tuft(p, x, y, r() < 0.7 ? P.grassDark : GRASS_MID, r() < 0.5 ? P.grassLight : GRASS_HI, Math.floor(r() * 3));
+    const dark = r() < 0.75 ? P.grassDark : shade(P.grass, -0.4);
+    const light = r() < 0.5 ? P.grassLight : GRASS_HI;
+    tuft(p, x, y, dark, light, Math.floor(r() * 5));
   }
-  // um detalhe raro: florzinha ou pedrinha
-  if (r() < 0.5) {
-    const x = Math.floor(r() * T); const y = Math.floor(r() * T);
-    if (r() < 0.6) { p.set(x, y, r() < 0.5 ? P.white : P.pink); p.set(x, y + 1, P.grassDark); }
-    else { p.set(x, y, P.stoneLight); p.set(x + 1, y, P.stone); p.set(x, y + 1, P.grassDark); p.set(x + 1, y + 1, P.grassDark); }
-  }
+  // um detalhe raro: florzinha, trevo ou pedrinha
+  const d = r();
+  const x = Math.floor(r() * T); const y = Math.floor(r() * T);
+  if (d < 0.3) { p.set(x, y, r() < 0.5 ? P.white : P.pink); p.set(x + 1, y, r() < 0.5 ? P.mustardLight : P.coralLight); p.set(x, y + 1, P.grassDark); }
+  else if (d < 0.5) { p.set(x, y, P.grassLight); p.set(x + 1, y, P.grassLight); p.set(x, y + 1, P.grassLight); p.set(x + 1, y + 1, P.grassDark); } // trevo
+  else if (d < 0.65) { p.set(x, y, P.stoneLight); p.set(x + 1, y, P.stone); p.set(x, y + 1, shade(P.grass, -0.35)); p.set(x + 1, y + 1, shade(P.grass, -0.35)); }
   return p;
 }
 
@@ -116,23 +128,25 @@ export function tileFlowers(seed = 3): Pix {
 export function tilePath(seed = 4): Pix {
   const p = base(P.dirt);
   const r = rng(seed);
-  blobs(p, r, 3, 3, 6, DIRT_MID);
+  blobs(p, r, 3, 4, 7, DIRT_MID);
   blobs(p, r, 2, 2, 4, mix(P.dirt, P.dirtLight, 0.6));
-  speckle(p, seed + 1, [P.dirtDark, P.dirtLight, DIRT_MID], 0.045);
-  // pedrinhas com volume
-  for (let i = 0; i < 4; i++) {
+  blobs(p, r, 1, 2, 3, shade(P.dirt, -0.26));
+  speckle(p, seed + 1, [P.dirtDark, P.dirtLight, DIRT_MID], 0.04);
+  // pedrinhas com volume (luz em cima/esquerda, sombra deslocada para o azul embaixo)
+  for (let i = 0; i < 5; i++) {
     const x = Math.floor(r() * T);
     const y = Math.floor(r() * T);
+    const big = r() < 0.3;
     const c = r() < 0.5 ? P.dirtLight : mix(P.stoneLight, P.dirtLight, 0.5);
-    p.rect(x, y, 2, 2, c);
-    p.set(x + 1, y + 1, darken(c, 0.25));
-    p.set(x, y + 2, P.dirtDark); p.set(x + 1, y + 2, P.dirtDark);
+    if (big) { p.rect(x, y, 3, 2, c); p.set(x, y, lighten(c, 0.3)); p.set(x + 2, y + 1, shade(c, -0.3)); p.hline(x, x + 2, y + 2, shade(P.dirt, -0.4)); }
+    else { p.rect(x, y, 2, 2, c); p.set(x, y, lighten(c, 0.25)); p.set(x + 1, y + 1, shade(c, -0.3)); p.set(x, y + 2, shade(P.dirt, -0.4)); p.set(x + 1, y + 2, shade(P.dirt, -0.4)); }
   }
-  // rachaduras curtas
+  // rachaduras curtas e um graveto
   for (let i = 0; i < 2; i++) {
     const x = Math.floor(r() * T); const y = Math.floor(r() * T);
     p.set(x, y, P.dirtDark); p.set(x + 1, y + 1, P.dirtDark); p.set(x + 2, y + 1, P.dirtDark); p.set(x + 3, y + 2, P.dirtDark);
   }
+  if (r() < 0.4) { const x = Math.floor(r() * T); const y = Math.floor(r() * T); p.hline(x, x + 4, y, P.woodDark); p.set(x + 2, y - 1, P.woodDark); p.hline(x, x + 4, y + 1, shade(P.dirt, -0.3)); }
   return p;
 }
 
@@ -163,17 +177,20 @@ export function tileCobble(seed = 5): Pix {
 export function tileWater(frame = 0, seed = 6): Pix {
   const p = base(P.water);
   const r = rng(seed);
-  blobs(p, r, 3, 4, 7, WATER_MID);
-  blobs(p, r, 2, 2, 4, mix(P.water, P.waterLight, 0.35));
-  // ondulações: arcos claros com sombra por baixo, deslocando por frame
+  // profundidade: manchas suaves e grandes (contraste baixo para a repetição do tile não aparecer)
+  blobs(p, r, 2, 6, 10, shade(P.water, -0.1));
+  blobs(p, r, 1, 4, 6, WATER_MID);
+  blobs(p, r, 2, 2, 4, mix(P.water, P.waterLight, 0.3));
+  // ondulações: cristas claras finas com ponta branca e um leve tom mais escuro por baixo
   const r2 = rng(seed + 50);
   for (let i = 0; i < 6; i++) {
     const x = Math.floor(r2() * T) + frame * 2;
     const y = Math.floor(r2() * T) + (frame % 2);
-    const len = 3 + Math.floor(r2() * 4);
+    const len = 3 + Math.floor(r2() * 5);
     p.hline(x, x + len, y, P.waterLight);
+    p.set(x, y, P.white);
     p.set(x - 1, y + 1, P.waterLight); p.set(x + len + 1, y + 1, P.waterLight);
-    p.hline(x, x + len, y + 1, WATER_MID);
+    p.hline(x + 1, x + len, y + 1, WATER_MID);
   }
   // reflexos brilhantes que piscam
   const r3 = rng(seed + 100 + frame);
@@ -228,13 +245,19 @@ export function tileFenceV(): Pix {
 export function tileRock(seed = 40): Pix {
   const p = tileGrass(seed);
   p.wrap = false;
-  p.ellipseBlend(16, 22, 13, 5, P.black, 70);
-  p.ellipse(16, 18, 12, 8, P.stoneDark);
-  p.ellipse(15, 16, 11, 7, P.stone);
-  p.ellipse(13, 13, 6, 3, P.stoneLight);
-  p.rectDither(6, 18, 20, 5, P.stoneDark, DITHER.checker);
-  p.set(21, 15, P.stoneDark); p.set(22, 16, P.stoneDark);
-  p.set(9, 19, P.sageDark); p.set(10, 20, P.sageDark);
+  const dark = shade(P.stoneDark, -0.25);
+  // pedra grande com faces (luz de cima/esquerda) e uma pedra menor ao lado
+  p.ellipseBlend(15, 24, 13, 5, P.black, 80);
+  p.ellipse(15, 18, 12, 8, dark);
+  p.ellipse(14, 16, 11, 7, P.stone);
+  p.ellipse(12, 13, 7, 4, P.stoneLight);
+  p.set(9, 11, lighten(P.stoneLight, 0.4)); p.set(10, 11, lighten(P.stoneLight, 0.4));
+  p.rectDither(4, 19, 22, 5, dark, DITHER.checker);
+  p.line(18, 12, 23, 18, P.stoneDark); p.line(23, 18, 21, 22, dark); // aresta
+  p.ellipse(26, 22, 5, 4, dark); p.ellipse(25, 21, 4, 3, P.stone); p.set(24, 19, P.stoneLight);
+  // musgo e capim junto à base
+  p.rect(6, 20, 4, 2, P.sageDark); p.set(7, 19, P.sage); p.set(19, 24, P.sageDark); p.set(20, 23, P.sage);
+  tuft(p, 4, 26, P.grassDark, P.grassLight, 0); tuft(p, 28, 27, P.grassDark, P.grassLight, 1);
   return p;
 }
 
@@ -398,49 +421,53 @@ export function edgeCobble(side: 'N' | 'S' | 'E' | 'W'): Pix {
 export function tileFloorWood(seed = 20): Pix {
   const p = new Pix(T, T);
   const r = rng(seed);
-  const tones = [P.wood, mix(P.wood, P.woodLight, 0.18), mix(P.wood, P.woodDark, 0.18), P.wood];
+  // tábuas mais claras e quentes que a madeira dos móveis, para eles se destacarem
+  const base = mix(P.wood, P.caramel, 0.5);
+  const tones = [base, shade(base, 0.05), shade(base, -0.05), base];
+  const seam = shade(base, -0.32);
   for (let row = 0; row < 4; row++) {
     const y = row * 8;
-    const split = 6 + Math.floor(r() * 20);
+    // tábuas longas: só metade das fileiras tem emenda vertical dentro do tile
+    const hasSplit = r() < 0.5;
+    const split = hasSplit ? 6 + Math.floor(r() * 20) : T;
     const c1 = tones[Math.floor(r() * tones.length)];
     const c2 = tones[Math.floor(r() * tones.length)];
     p.rect(0, y, split, 8, c1);
-    p.rect(split, y, T - split, 8, c2);
-    p.hline(0, T - 1, y, lighten(c1, 0.12));
-    p.hline(0, T - 1, y + 7, P.woodDark);
-    p.vline(split - 1, y, y + 7, P.woodDark);
-    p.vline(split, y + 1, y + 6, lighten(c2, 0.12));
-    // veios
-    for (let i = 0; i < 3; i++) {
-      const x = Math.floor(r() * 28);
-      const yy = y + 2 + Math.floor(r() * 4);
-      p.hline(x, x + 2 + Math.floor(r() * 4), yy, darken(r() < 0.5 ? c1 : c2, 0.12));
+    if (hasSplit) p.rect(split, y, T - split, 8, c2);
+    p.hline(0, T - 1, y, shade(c1, 0.12));
+    p.hline(0, T - 1, y + 7, seam);
+    if (hasSplit) { p.vline(split - 1, y, y + 6, seam); p.vline(split, y + 1, y + 5, shade(c2, 0.1)); }
+    // veios longos e suaves
+    for (let i = 0; i < 2; i++) {
+      const x = Math.floor(r() * 24);
+      const yy = y + 2 + Math.floor(r() * 3);
+      p.hline(x, x + 4 + Math.floor(r() * 6), yy, shade(r() < 0.5 ? c1 : c2, -0.07));
     }
-    // pregos junto às juntas
-    p.set(split - 3, y + 3, P.brownDark); p.set(split + 2, y + 4, P.brownDark);
+    if (r() < 0.35) { const kx = 2 + Math.floor(r() * 26); p.set(kx, y + 3, shade(c1, -0.2)); p.set(kx + 1, y + 3, shade(c1, -0.2)); p.set(kx, y + 4, shade(c1, -0.12)); } // nó da madeira
   }
   return p;
 }
 
 export function tileFloorShop(seed = 21): Pix {
   const p = new Pix(T, T);
-  const cream = P.cream; const pink = mix(P.pink, P.cream, 0.25);
+  const cream = mix(P.cream, P.creamLight, 0.4); const pink = mix(P.pink, P.cream, 0.35);
   const cell = (x: number, y: number, c: Hex) => {
     p.rect(x, y, 16, 16, c);
-    p.hline(x, x + 15, y, lighten(c, 0.35));
-    p.vline(x, y, y + 15, lighten(c, 0.25));
-    p.hline(x, x + 15, y + 15, darken(c, 0.18));
-    p.vline(x + 15, y, y + 15, darken(c, 0.14));
+    p.hline(x, x + 15, y, shade(c, 0.3));
+    p.vline(x, y, y + 15, shade(c, 0.2));
+    p.hline(x, x + 15, y + 15, shade(c, -0.16));
+    p.vline(x + 15, y, y + 15, shade(c, -0.12));
+    p.set(x + 3, y + 3, shade(c, 0.45)); p.set(x + 4, y + 3, shade(c, 0.45)); // reflexo do azulejo
   };
   cell(0, 0, cream); cell(16, 0, pink); cell(0, 16, pink); cell(16, 16, cream);
   const r = rng(seed);
-  for (let i = 0; i < 5; i++) p.set(1 + Math.floor(r() * 30), 1 + Math.floor(r() * 30), r() < 0.5 ? P.creamLight : P.white, 160);
+  for (let i = 0; i < 4; i++) p.set(1 + Math.floor(r() * 30), 1 + Math.floor(r() * 30), r() < 0.5 ? P.creamLight : P.white, 140);
   return p;
 }
 
 export function tileWallTop(): Pix {
   const p = new Pix(T, T);
-  const c = darken(P.woodDark, 0.45);
+  const c = shade(darken(P.woodDark, 0.4), -0.15);
   p.rect(0, 0, T, T, c);
   for (let x = 0; x < T; x += 8) { p.vline(x, 0, T - 1, darken(c, 0.3)); p.vline(x + 1, 0, T - 1, lighten(c, 0.08)); }
   p.hline(0, T - 1, T - 1, P.outline);
@@ -450,23 +477,48 @@ export function tileWallTop(): Pix {
 
 function plaster(p: Pix, seed: number, color: Hex): void {
   p.rect(0, 0, T, T, color);
-  speckle(p, seed, [darken(color, 0.06), lighten(color, 0.08)], 0.06);
+  speckle(p, seed, [shade(color, -0.05), shade(color, 0.07)], 0.05);
+}
+
+/** Papel de parede: listras verticais suaves com um pontilhado discreto. */
+function wallpaper(p: Pix, y0: number, y1: number, a: Hex, b: Hex, dots: Hex | null, seed: number): void {
+  for (let x = 0; x < T; x += 4) p.rect(x, y0, 4, y1 - y0 + 1, (x / 4) % 2 ? a : b);
+  if (dots) { const r = rng(seed); for (let i = 0; i < 5; i++) { const x = Math.floor(r() * T); const y = y0 + Math.floor(r() * (y1 - y0)); p.set(x, y, dots); } }
+}
+
+/**
+ * Metade de cima da parede de fundo (fileira 'W' com '#' logo abaixo): viga do teto com sombra
+ * projetada em degradê + papel de parede. Faz o cômodo parecer mais alto.
+ */
+export function tileWallUpper(seed = 33, shop = false): Pix {
+  const p = new Pix(T, T);
+  const paper = shop ? mix(P.cream, P.pink, 0.22) : P.cream;
+  plaster(p, seed, paper);
+  if (shop) wallpaper(p, 8, T - 1, mix(P.cream, P.pink, 0.4), mix(P.cream, P.pink, 0.18), P.pink, seed);
+  else wallpaper(p, 8, T - 1, shade(P.cream, 0.05), shade(P.cream, -0.04), null, seed);
+  // viga do teto com volume e sombra em degradê (dithering em três passos)
+  p.rect(0, 0, T, 5, P.woodDark);
+  p.hline(0, T - 1, 0, P.woodLight); p.hline(0, T - 1, 1, P.wood);
+  for (let x = 0; x < T; x += 11) p.vline(x, 1, 4, P.brownDark);
+  p.hline(0, T - 1, 5, shade(P.brownDark, -0.2));
+  p.rect(0, 6, T, 2, shade(paper, -0.3));
+  p.rectDither(0, 8, T, 2, shade(paper, -0.3), DITHER.checker);
+  p.rectDither(0, 10, T, 2, shade(paper, -0.18), DITHER.sparse);
+  return p;
 }
 
 export function tileWall(seed = 30): Pix {
   const p = new Pix(T, T);
   plaster(p, seed, P.cream);
-  // viga superior com volume
-  p.rect(0, 0, T, 4, P.woodDark);
-  p.hline(0, T - 1, 0, P.wood);
-  p.hline(0, T - 1, 4, P.brownDark);
-  p.rectDither(0, 5, T, 2, P.creamDark, DITHER.checker); // sombra sob a viga
-  // lambri inferior
-  p.rect(0, 24, T, 8, P.wood);
-  p.hline(0, T - 1, 24, P.woodLight);
-  for (let x = 0; x < T; x += 8) { p.vline(x, 25, 30, P.woodDark); p.vline(x + 1, 25, 30, P.woodLight); }
-  p.hline(0, T - 1, 31, P.brownDark);
-  p.hline(0, T - 1, 23, P.creamDark);
+  wallpaper(p, 0, 20, shade(P.cream, 0.05), shade(P.cream, -0.04), null, seed);
+  // lambri inferior com painéis e rodapé
+  p.hline(0, T - 1, 20, shade(P.cream, -0.2));
+  p.rect(0, 21, T, 11, P.wood);
+  p.hline(0, T - 1, 21, P.woodLight);
+  for (let x = 0; x < T; x += 16) { p.box(x + 2, 23, 12, 6, P.woodDark); p.hline(x + 3, x + 12, 23, shade(P.wood, 0.25)); p.vline(x + 2, 24, 27, shade(P.wood, 0.25)); }
+  p.rect(0, 29, T, 3, shade(P.woodDark, -0.1));
+  p.hline(0, T - 1, 29, P.wood);
+  p.hline(0, T - 1, 31, shade(P.brownDark, -0.25));
   return p;
 }
 
@@ -485,15 +537,21 @@ export function tileWallSide(seed = 32): Pix {
 }
 
 export function tileWallShop(seed = 31): Pix {
-  const p = tileWall(seed);
-  const a = mix(P.cream, P.pink, 0.4);
-  const b = mix(P.cream, P.pink, 0.18);
-  for (let x = 0; x < T; x += 4) p.rect(x, 5, 4, 18, (x / 4) % 2 ? a : b);
-  const r = rng(seed);
-  for (let i = 0; i < 6; i++) { const x = Math.floor(r() * T); const y = 6 + Math.floor(r() * 15); p.set(x, y, P.pink); p.set(x + 1, y, P.pinkDark, 120); }
-  p.rectDither(0, 5, T, 2, P.pinkDark, DITHER.checker);
-  p.rect(0, 14, T, 2, P.pinkDark);
-  p.hline(0, T - 1, 14, P.pink);
+  const p = new Pix(T, T);
+  const paper = mix(P.cream, P.pink, 0.22);
+  plaster(p, seed, paper);
+  wallpaper(p, 0, 12, mix(P.cream, P.pink, 0.4), mix(P.cream, P.pink, 0.18), P.pink, seed);
+  // friso com barrado floral
+  p.rect(0, 13, T, 3, P.pinkDark); p.hline(0, T - 1, 13, P.pink);
+  for (let x = 2; x < T; x += 8) { p.set(x, 14, P.white); p.set(x + 4, 14, P.coralLight); }
+  // lambri branco com painéis e rodapé
+  const wain = mix(P.creamLight, P.white, 0.5);
+  p.rect(0, 16, T, 16, wain);
+  p.hline(0, T - 1, 16, P.white);
+  for (let x = 0; x < T; x += 16) { p.box(x + 2, 19, 12, 7, shade(wain, -0.22)); p.hline(x + 3, x + 12, 19, P.white); }
+  p.rect(0, 28, T, 4, shade(wain, -0.12));
+  p.hline(0, T - 1, 28, P.white);
+  p.hline(0, T - 1, 31, shade(wain, -0.4));
   return p;
 }
 
@@ -551,6 +609,8 @@ export const TILE_GENERATORS: Record<string, () => Pix> = {
   floor2: () => tileFloorWood(21),
   floorShop: () => tileFloorShop(),
   wallTop: () => tileWallTop(),
+  wallUpper: () => tileWallUpper(33, false),
+  wallUpperShop: () => tileWallUpper(34, true),
   wall: () => tileWall(30),
   wallSide: () => tileWallSide(32),
   wallShop: () => tileWallShop(31),

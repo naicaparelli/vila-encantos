@@ -22,9 +22,9 @@ export const REGROW_SECONDS: Record<string, number> = {
 export type Species = 'coelho' | 'gato' | 'cachorro';
 
 export const SPECIES_INFO: Record<Species, { name: string; desc: string }> = {
-  coelho: { name: 'Coelhinho', desc: 'Pelagem creme, orelhas longas.\nJardineira lilás e lenço amarelo.' },
-  gato: { name: 'Gatinho', desc: 'Pelagem laranja com listras, olhos verdes.\nJardineira azul-petróleo e lenço coral.' },
-  cachorro: { name: 'Cachorrinho', desc: 'Pelagem caramelo, orelhas caídas.\nJardineira mostarda e lenço verde-sálvia.' },
+  coelho: { name: 'Bunny', desc: 'Cream fur and long ears.\nLilac overalls and a yellow scarf.' },
+  gato: { name: 'Kitten', desc: 'Orange striped fur and green eyes.\nTeal overalls and a coral scarf.' },
+  cachorro: { name: 'Puppy', desc: 'Caramel fur and floppy ears.\nMustard overalls and a sage scarf.' },
 };
 
 export const isTouchDevice = (): boolean =>
