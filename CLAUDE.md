@@ -55,7 +55,8 @@ src/art/pix.ts             buffer de pixels (rect, disc, line, triangle, outline
 src/art/tiles.ts           tiles 32 px: grama, caminho, pedra, água (3 frames), piso, parede, cerca…
 src/art/characters.ts      gerador dos personagens 32×48 (3 espécies do jogador + 3 NPCs), 4 direções × (parado + 4 frames)
 src/art/objects.ts         props, pontos de coleta, fachadas (velha/restaurada), fonte, mobílias, ícones de itens e UI, escritório
-src/art/textures.ts        registra tudo no Phaser; gera automaticamente a variante `__faded` de cada textura
+src/art/ui.ts              molduras 9-slice, botões, slots, joystick e ícones de UI (texturas ui_*)
+src/art/textures.ts        registra tudo no Phaser; gera automaticamente a variante `__faded` de cada textura e os 9 frames das molduras
 src/audio/music.ts         sequenciador chiptune por mapa (title, office, atelier, praca, praca_restored, floresta, loja, loja_restored, ending)
 src/audio/sfx.ts           efeitos curtos por osciladores
 src/data/items.ts          materiais, itens-chave e mobílias com atributos (aconchego / iluminação / natural)
@@ -70,8 +71,14 @@ src/scenes/IntroScene.ts   cinemática (escritório → anúncio → ônibus →
 src/scenes/WorldScene.ts   mapa, jogador, colisão, portas, interações, coleta, NPCs, restauração, modo decoração, sequência da fonte
 src/scenes/UIScene.ts      HUD, diálogo, mochila, caderno (5 abas), mapa, crafting, HUD de decoração, controles de toque
 src/scenes/EndingScene.ts  carta misteriosa e fim do capítulo 1
+src/ui/widgets.ts          PixelPanel (9-slice em Canvas), Button, RoundButton, PixelBar, textStyle/hudStyle
 tools/smoke.mjs            playthrough automatizado (Playwright + Chrome local)
 tools/diag.mjs             diagnóstico de boot
+tools/serve.sh             reinicia o `vite preview` (ele guarda o index.html em cache; reiniciar após cada build)
+tools/peek.mjs             captura rápida de cada mapa (velho/restaurado), painéis e diálogo
+tools/atlas.mjs            folha de contato de todas as texturas ampliadas (por grupo)
+tools/furn.mjs             ateliê com todas as mobílias nas 4 orientações
+tools/panels.mjs           mochila, caderno (missões/receitas) e crafting com itens de teste
 ```
 
 ## 5. Sistemas implementados (mapeamento com o README)
@@ -120,3 +127,58 @@ tools/diag.mjs             diagnóstico de boot
 - Trilhas compostas à mão podem substituir o sequenciador mantendo a interface `music.play(id)`.
 - Capítulo 2: Bosque dos Sussurros (a placa e o caminho ao norte da praça já aparecem após o final).
 - Pathfinding simples para NPCs se moverem; hoje eles ficam parados e apenas viram para o jogador.
+
+## 10. Upgrade visual (branch `art-boost`)
+
+Passe completo de pixel art e interface, feito sem nenhum asset binário (tudo continua gerado em código). Cada etapa foi verificada com `typecheck`, `build`, smoke desktop e mobile, e comparada em screenshots antes/depois.
+
+### Commits
+
+| Commit | Etapa |
+| --- | --- |
+| `5a730a2` | Tiles com variação orgânica, bordas automáticas (lago afundado, caminho, meio-fio), sombras no chão, laterais de parede |
+| `14af7bc` | Personagens com sombreamento em 3 tons, caminhada com balanço, retratos 48×48 |
+| `09f57b7` | Props, fachadas, fonte e mobílias redesenhados; mobílias com 4 orientações desenhadas |
+| `62d54c3` | UI em pixel art: molduras 9-slice, botões, slots, diálogo com retrato, controles de toque |
+| `82746fa` | Título, cinemática e efeitos (partículas, luz da janela, onda da restauração, cantos arredondados) |
+| (este) | Seleção de personagem adaptada a telas baixas + esta documentação |
+
+### O que mudou, por área
+
+- **Terreno** (`src/art/tiles.ts`): tiles desenhados com `wrap = true` (manchas e tufos atravessam a borda, sem emendas). Grama com manchas em dithering, tufos e florzinhas; caminho com pedrinhas com volume; calçamento com pedras arredondadas e juntas; água com ondulações e reflexos por frame; cercas, piso de tábuas, azulejo da loja, papel de parede listrado, lateral de parede (`wallSide`).
+- **Transições automáticas** (`WorldScene.addEdges`): por vizinho, sobrepõe `edgeWater*` (orelha de grama + parede de terra + sombra na água: o lago fica "afundado"), `edgePath*` (grama avançando sobre o caminho, 1 px mais baixo), `edgeCobble*` (meio-fio), cantos internos `corner*` e cantos externos arredondados `cap*`.
+- **Sombras**: `groundShadow()` sob árvores, props, nós de coleta e NPCs (a sombra acompanha visibilidade/remoção).
+- **Personagens** (`src/art/characters.ts`): cabeça arredondada com luz/sombra, olhos com brilho, bochechas, bigodes, jardineira com peitilho/alças/botões/bolso, lenço com nó, bolsa com fivela; ciclo de caminhada contato/passagem com o corpo subindo na passagem, braços e orelhas balançando; perfil com focinho projetado e costas com alças cruzadas. `drawPortrait()` gera `portrait_player_*` / `portrait_npc_*` para o diálogo.
+- **Props e fachadas** (`src/art/objects.ts`): helpers `plank`, `stoneBlock`, `roofShingles` (telhas arredondadas com sombreamento por fileira), `eave`, `windowFrame` (peitoril, venezianas, cortinas, floreira, tábuas), `doorFrame`, `potPlant`, `canopy`/`trunk`. Fachadas com base de pedra e enxaimel; variantes velhas com buracos, tábuas, rachaduras e teias. Fonte em blocos com água e jatos; altar, tronco, poste, placas e nós refeitos.
+- **Mobílias com 4 orientações**: cada gerador `furn*` recebe `Facing` (`south | east | north | west`) e desenha o móvel visto daquele ângulo. Texturas `furn_<id>_<dir>`; `furn_<id>` continua apontando para a vista sul (ícones, receitas, caderno). `WorldScene.furnTexture(item, rot)` faz o mapeamento `rot` 0..3 → sul/leste/norte/oeste em `addPlacedSprite`, `refreshGhost` e `decorRotate`; `setAngle` não é mais usado e o save continua guardando só `rot`.
+  - 4 vistas distintas: cama (cabeceira/travesseiro mudam de lado), cadeira (encosto atrás, à frente ou na lateral), banco, mesa de chá (arranjo de xícara e bule gira), vasos (arranjo das flores), luminária (cordinha muda de lado).
+  - **Decisão documentada**: mobílias de parede (prateleira, vitrine, cortina, quadro) ficam sempre encostadas na parede norte, então têm só 2 arranjos (sul = norte; leste = oeste com os objetos invertidos). Tapete, almofada e banquinho são simétricos: 2 variantes (padrão/pregas/pernas girados 90°).
+- **Interface** (`src/art/ui.ts`, `src/ui/widgets.ts`): `PixelPanel` monta uma moldura 9-slice com 9 imagens (o `NineSlice` do Phaser é só WebGL; o teste headless usa Canvas). Pergaminho com moldura de madeira, cantos arredondados e gemas lilás; `ui_pill` fino para HUD; `ui_panel_inset` para áreas afundadas; botões madeira/coral/lilás/desabilitado com relevo; slots; botão redondo; joystick. Texto de painel escuro sem contorno (`textStyle`), texto sobre o mundo claro com contorno (`hudStyle`). Diálogo com retrato em moldura, etiqueta de nome e seta de continuar. Mochila com slots e painel de detalhes, caderno com abas e caixas de seleção, mapa com trilha pontilhada, crafting com ícones dos ingredientes.
+- **Título e cinemática**: placa de madeira pendurada por cordas, céu em faixas, sol/colinas, nuvens à deriva, folhas/pétalas caindo, personagem na porta; anúncio da intro em pergaminho dentro do monitor, estrada com cercas e nuvens, postes na chegada.
+- **Efeitos** (`WorldScene.buildAmbient/updateAmbient`): folhas na praça desbotada e pétalas na restaurada, vaga-lumes na floresta, feixe de luz (blend ADD) e poeira na janela do ateliê após abri-la, nuvem de poeira nos pés ao andar/correr, brilhos na fonte, e na restauração um anel de luz expandindo com pulso de tint em cada objeto restaurado.
+
+### Novos helpers em `src/art/pix.ts`
+
+`wrap` (coordenadas dão a volta), `blend`/`rectBlend`/`ellipseBlend` (composição alpha), `rectDither` (padrões `DITHER.checker/sparse/dense/rows/cols`, só sobre pixels opacos por padrão), `discSoft` (borda em dithering), `rrectR`/`rrectOutline` (cantos com raio), `bevel` (luz/sombra automática na silhueta), `replace`, `rotated`/`flippedX`/`flippedY`/`clone`, `opaque`/`getHex`, `shadowPix`.
+
+### Screenshots comparativas
+
+`tools/shots/` está no `.gitignore`; as capturas ficam locais:
+
+- `tools/shots/before/` — playthrough completo e atlas de texturas antes do upgrade.
+- `tools/shots/after/` — mapas velhos/restaurados, painéis, diálogo, título, intro, decoração, final, mobile, ateliê com as mobílias nas 4 orientações (`atelier_A/B.png`) e atlas por grupo.
+- `tools/shots/run/` — última execução do smoke (desktop `NN_*.png`, mobile `m_NN_*.png`).
+
+Para regerar: `npm run build && bash tools/serve.sh && node tools/peek.mjs && node tools/furn.mjs && node tools/atlas.mjs`.
+
+### Observações
+
+- O `vite preview` serve o `index.html` em cache; depois de cada `build` é preciso reiniciá-lo (`tools/serve.sh`), senão os testes rodam o bundle antigo.
+- O Desbotamento continua automático: toda textura nova ganha a variante `__faded`, exceto UI, ícones e efeitos (`NO_FADE_PREFIXES`).
+
+## 11. Ajustes de jogabilidade (após o upgrade visual)
+
+- **Colisão em pixels** (`pxBlocks` em props/interações, `src/data/maps.ts`): retângulos em pixels relativos ao sprite, somados à grade de tiles em `WorldScene.fits()`. Usados na fonte (oval do tanque), no altar (base) e nos postes (só a base de 10 px). Resolve paredes invisíveis atrás de objetos grandes e cantos quadrados em formas redondas. `blockObj()` liga/desliga os dois tipos de bloqueio junto com a visibilidade do objeto.
+- **Mobílias penduradas** (`hang: 'wall' | 'window'` em `src/data/items.ts`): quadro vai no próprio tile da parede de fundo (`#` com chão logo abaixo, sem janela); cortina só em tiles com prop/interação de textura `window*`. Não ocupam chão, não bloqueiam e não giram. Prateleira e vitrine continuam no chão encostadas na parede (`wall: true`).
+- **Modo decoração**: WASD/setas/joystick movem o personagem (não o cursor); o cursor acompanha o tile à frente dele e o mouse/toque apontam diretamente. Entrar numa porta sai do modo decoração.
+- **Posição exata no save** (`px`/`py` em `SaveData`): "Continuar" restaura a posição em pixels, não só o tile. `WorldScene.unstickPlayer()` ainda empurra o personagem para o ponto livre mais próximo se ele nascer dentro de um bloqueio (ex.: NPC que aparece no tile dele após a restauração da praça). Isso corrigia o personagem preso ao voltar do título depois de zerar o jogo.

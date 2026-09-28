@@ -1,0 +1,21 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log('CONSOLE', m.text()); });
+page.on('pageerror', (e) => console.log('PAGEERROR', e.message, e.stack));
+await page.goto('http://localhost:4173/?renderer=canvas'); await page.waitForTimeout(2500);
+await page.evaluate(() => { const g = window.__game; const st = window.__state; st.newGame('gato'); st.data.introSeen = true; st.startQuest('q1'); g.scene.stop('TitleScene'); g.scene.start('WorldScene', { map: 'atelier', x: 6, y: 6 }); });
+await page.waitForTimeout(1500);
+for (let i = 0; i < 6; i++) { const open = await page.evaluate(() => !!window.__game.scene.getScene('UIScene').dialogueBox); if (!open) break; await page.keyboard.press('e'); await page.waitForTimeout(150); }
+await page.keyboard.press('Tab'); await page.waitForTimeout(500);
+console.log('panelKind', await page.evaluate(() => window.__game.scene.getScene('UIScene').panelKind));
+await page.screenshot({ path: 'tools/shots/peek/panel_notebook.png' });
+await page.evaluate(() => { window.__game.scene.getScene('UIScene').notebookTab = 1; window.__state.unlockRecipes?.('bench'); window.__game.scene.getScene('UIScene').rebuildPanel(); });
+await page.waitForTimeout(300); await page.screenshot({ path: 'tools/shots/peek/panel_recipes.png' });
+await page.keyboard.press('Escape');
+await page.evaluate(() => { const g = window.__state; g.addItem('madeira', 12, true); g.addItem('folhas', 3, true); g.addItem('cama', 1, true); g.addItem('cadeira', 2, true); g.addItem('foto', 1, true); });
+await page.keyboard.press('b'); await page.waitForTimeout(500); await page.screenshot({ path: 'tools/shots/peek/panel_inventory.png' });
+await page.keyboard.press('Escape');
+await page.evaluate(() => { window.__game.scene.getScene('UIScene').openCrafting('marcenaria'); });
+await page.waitForTimeout(500); await page.screenshot({ path: 'tools/shots/peek/panel_crafting.png' });
+await browser.close();

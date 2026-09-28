@@ -16,6 +16,8 @@ export interface ItemDef {
   attrs?: ItemAttrs;
   /** Mobílias de parede só podem ser colocadas encostadas na parede superior. */
   wall?: boolean;
+  /** Pendurado: ocupa o próprio tile da parede ('wall') ou de uma janela ('window'), sem ocupar o chão. */
+  hang?: 'wall' | 'window';
   /** Mobílias de chão que não bloqueiam passagem (tapetes). */
   walkable?: boolean;
 }
@@ -50,10 +52,10 @@ export const ITEMS: Record<string, ItemDef> = {
   // ---- mobílias (costura)
   tapete: { id: 'tapete', name: 'Tapete tecido', desc: 'Tapete quente de fibras trançadas.', kind: 'furniture', icon: 'furn_tapete', attrs: { aconchego: 2 }, walkable: true },
   almofada: { id: 'almofada', name: 'Almofada', desc: 'Macia e azul-petróleo.', kind: 'furniture', icon: 'furn_almofada', attrs: { aconchego: 2 } },
-  cortina: { id: 'cortina', name: 'Cortina', desc: 'Cortina verde-sálvia para suavizar a luz.', kind: 'furniture', icon: 'furn_cortina', attrs: { aconchego: 1, iluminacao: 1 }, wall: true },
+  cortina: { id: 'cortina', name: 'Cortina', desc: 'Cortina verde-sálvia para suavizar a luz.', kind: 'furniture', icon: 'furn_cortina', attrs: { aconchego: 1, iluminacao: 1 }, wall: true, hang: 'window' },
 
   // ---- mobílias (pintura)
-  quadro: { id: 'quadro', name: 'Quadro pintado', desc: 'Uma pintura do ateliê em seus melhores dias.', kind: 'furniture', icon: 'furn_quadro', attrs: { aconchego: 2 }, wall: true },
+  quadro: { id: 'quadro', name: 'Quadro pintado', desc: 'Uma pintura do ateliê em seus melhores dias.', kind: 'furniture', icon: 'furn_quadro', attrs: { aconchego: 2 }, wall: true, hang: 'wall' },
   vaso_encantado: { id: 'vaso_encantado', name: 'Vaso encantado', desc: 'Flores-de-lua que brilham à noite.', kind: 'furniture', icon: 'furn_vaso_encantado', attrs: { natural: 2, iluminacao: 1 } },
   luminaria_encantada: { id: 'luminaria_encantada', name: 'Luminária encantada', desc: 'Luz lilás que afasta o Desbotamento.', kind: 'furniture', icon: 'furn_luminaria_encantada', attrs: { aconchego: 1, iluminacao: 3 } },
 };
