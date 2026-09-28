@@ -109,9 +109,17 @@ export class Pix {
     for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) this.set(xx, yy, color, alpha);
   }
 
-  /** Retângulo pintado apenas onde o padrão de dithering permite. */
-  rectDither(x: number, y: number, w: number, h: number, color: Hex, pattern: DitherFn = DITHER.checker, alpha = 255): void {
-    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (pattern(xx, yy)) this.set(xx, yy, color, alpha);
+  /**
+   * Retângulo pintado apenas onde o padrão de dithering permite.
+   * Por padrão só pinta sobre pixels já opacos (sombreia silhuetas sem "vazar" para fora).
+   */
+  rectDither(x: number, y: number, w: number, h: number, color: Hex, pattern: DitherFn = DITHER.checker, alpha = 255, onlyOpaque = true): void {
+    for (let yy = y; yy < y + h; yy++)
+      for (let xx = x; xx < x + w; xx++) {
+        if (!pattern(xx, yy)) continue;
+        if (onlyOpaque && !this.opaque(xx, yy)) continue;
+        if (alpha < 255) this.blend(xx, yy, color, alpha); else this.set(xx, yy, color);
+      }
   }
 
   /** Retângulo com sombra composta (alpha) — para sombras no chão. */

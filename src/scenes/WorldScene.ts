@@ -389,13 +389,20 @@ export class WorldScene extends Phaser.Scene {
     return { madeira: 'nodeWood', pedra: 'nodeStone', folhas: 'nodeLeaves', fibra: 'nodeFiber', flor: 'nodeFlower', po_encanto: 'nodeDust', flor_lua: 'nodeMoonFlower' }[material] ?? 'nodeWood';
   }
 
+  /** Textura da mobília na orientação `rot` (0 sul, 1 leste, 2 norte, 3 oeste). */
+  furnTexture(item: string, rot: number): string {
+    const base = ITEMS[item].icon;
+    const key = `${base}_${['south', 'east', 'north', 'west'][((rot % 4) + 4) % 4]}`;
+    return this.textures.exists(key) ? key : base;
+  }
+
   private buildPlaced(): void {
     for (const p of game.placedIn(this.mapId)) this.addPlacedSprite(p);
   }
 
   private addPlacedSprite(p: PlacedItem): WPlaced {
     const item = ITEMS[p.item];
-    const img = this.add.image(p.x * TILE + 16, p.y * TILE + 16, item.icon).setAngle(p.rot * 90);
+    const img = this.add.image(p.x * TILE + 16, p.y * TILE + 16, this.furnTexture(p.item, p.rot));
     img.setDepth(item.walkable ? 2 : p.y * TILE + 32);
     const w: WPlaced = { data: p, sprite: img };
     this.placed.push(w);
@@ -984,7 +991,8 @@ export class WorldScene extends Phaser.Scene {
     this.decorGhost = null;
     if (!this.decorItem) return;
     const item = ITEMS[this.decorItem];
-    this.decorGhost = this.add.image(0, 0, item.icon).setAlpha(0.65).setDepth(5001).setAngle(this.decorRot * 90);
+    void item;
+    this.decorGhost = this.add.image(0, 0, this.furnTexture(this.decorItem, this.decorRot)).setAlpha(0.65).setDepth(5001);
   }
 
   private setDecorTile(tx: number, ty: number): void {
@@ -1067,14 +1075,14 @@ export class WorldScene extends Phaser.Scene {
   decorRotate(): void {
     if (this.decorItem) {
       this.decorRot = (this.decorRot + 1) % 4;
-      this.decorGhost?.setAngle(this.decorRot * 90);
+      this.decorGhost?.setTexture(this.furnTexture(this.decorItem, this.decorRot));
       sfx('select');
       return;
     }
     const existing = this.placedAt(this.decorTile.x, this.decorTile.y);
     if (existing) {
       game.rotatePlaced(this.mapId, existing.data.uid);
-      existing.sprite.setAngle(existing.data.rot * 90);
+      existing.sprite.setTexture(this.furnTexture(existing.data.item, existing.data.rot));
       sfx('select');
     }
   }
