@@ -82,6 +82,12 @@ export class WorldScene extends Phaser.Scene {
 
   private stateHandlers: Array<[string, (...args: unknown[]) => void]> = [];
 
+  // efeitos ambientais
+  private ambient: Array<{ img: Phaser.GameObjects.Image; vx: number; vy: number; phase: number; kind: 'leaf' | 'petal' | 'firefly' | 'mote' }> = [];
+  private beam: Phaser.GameObjects.Image | null = null;
+  private puffTimer = 0;
+  private fountainSparkleTimer = 0;
+
   constructor() { super('WorldScene'); }
 
   get ui(): UIScene | null {
@@ -126,6 +132,7 @@ export class WorldScene extends Phaser.Scene {
     this.buildPlaced();
     this.buildPlayer();
     this.buildInput();
+    this.buildAmbient();
 
     this.decorCursor = this.add.image(0, 0, 'cursorTile').setOrigin(0).setDepth(5000).setVisible(false);
 
@@ -199,11 +206,71 @@ export class WorldScene extends Phaser.Scene {
       case 's': return 'rock';
       case '.': return h % 3 === 0 ? 'floor2' : 'floor';
       case ':': return 'floorShop';
-      case '#': return this.mapId === 'loja' ? 'wallShop' : 'wall';
+      case '#': {
+        // Só a fileira que tem chão logo abaixo mostra a face da parede; o resto é a lateral.
+        const below = this.charAt(x, y + 1);
+        if (!this.def.floorChars.includes(below)) return 'wallSide';
+        return this.mapId === 'loja' ? 'wallShop' : 'wall';
+      }
       case 'W': return 'wallTop';
       case 'D': return this.def.indoor ? (this.mapId === 'loja' ? 'matShop' : 'matWood') : 'matPath';
       default: return 'grass';
     }
+  }
+
+  /** Classe de terreno usada para decidir as bordas (água afundada, grama sobre o caminho, meio-fio). */
+  private terrainClass(ch: string): 'water' | 'path' | 'cobble' | 'grass' | 'none' {
+    if (this.def.indoor) return 'none';
+    switch (ch) {
+      case 'w': return 'water';
+      case 'p': case 'D': return 'path';
+      case 'c': return 'cobble';
+      case 'g': case 'G': case 'f': case 't': case 's': case '-': case '|': return 'grass';
+      default: return 'none';
+    }
+  }
+
+  private addTileImage(key: string, x: number, y: number, depth: number): Phaser.GameObjects.Image {
+    const img = this.add.image(x * TILE, y * TILE, this.tex(`tile_${key}`)).setOrigin(0).setDepth(depth);
+    img.setData('base', `tile_${key}`);
+    this.tileImgs.push(img);
+    return img;
+  }
+
+  /** Sobrepõe bordas de transição conforme os vizinhos (auto-tiling simples). */
+  private addEdges(x: number, y: number, ch: string): void {
+    const me = this.terrainClass(ch);
+    if (me === 'none' || me === 'grass') return;
+    const cls = (dx: number, dy: number) => {
+      const nx = x + dx; const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= this.cols || ny >= this.rows) return me;
+      const c = this.terrainClass(this.charAt(nx, ny));
+      return c === 'none' ? me : c;
+    };
+    const N = cls(0, -1); const S = cls(0, 1); const E = cls(1, 0); const W = cls(-1, 0);
+    const edge = (n: typeof N) => {
+      if (me === 'water') return n !== 'water' ? 'edgeWater' : null;
+      if (me === 'path') return n === 'grass' ? 'edgePath' : null;
+      if (me === 'cobble') return n === 'grass' || n === 'path' ? 'edgeCobble' : null;
+      return null;
+    };
+    const sides: Array<[string, typeof N]> = [['N', N], ['S', S], ['E', E], ['W', W]];
+    for (const [side, n] of sides) { const k = edge(n); if (k) this.addTileImage(`${k}${side}`, x, y, 0.5); }
+    if (me === 'water' || me === 'path') {
+      const corner = me === 'water' ? 'cornerWater' : 'cornerPath';
+      const cap = me === 'water' ? 'capWater' : 'capPath';
+      const out = (n: typeof N) => (me === 'water' ? n !== 'water' : n === 'grass');
+      const diag: Array<[string, number, number, typeof N, typeof N]> = [['NE', 1, -1, N, E], ['NW', -1, -1, N, W], ['SE', 1, 1, S, E], ['SW', -1, 1, S, W]];
+      for (const [name, dx, dy, a, b] of diag) {
+        if (out(cls(dx, dy)) && !out(a) && !out(b)) this.addTileImage(`${corner}${name}`, x, y, 0.5);
+        if (out(a) && out(b)) this.addTileImage(`${cap}${name}`, x, y, 0.6); // canto externo arredondado
+      }
+    }
+  }
+
+  /** Sombra suave no chão sob um objeto (largura em px, centrada em cx, com a base em baseY). */
+  private groundShadow(cx: number, baseY: number, w: number, h = Math.max(4, Math.round(w / 3)), alpha = 0.55): Phaser.GameObjects.Image {
+    return this.add.image(cx, baseY - 1, 'shadow').setDisplaySize(w, h).setDepth(0.9).setAlpha(alpha);
   }
 
   private buildTiles(): void {
@@ -213,14 +280,14 @@ export class WorldScene extends Phaser.Scene {
         const ch = this.charAt(x, y);
         const key = this.tileKeyFor(ch, x, y);
         if (key) {
-          const img = this.add.image(x * TILE, y * TILE, this.tex(`tile_${key}`)).setOrigin(0).setDepth(0);
-          img.setData('base', `tile_${key}`);
-          this.tileImgs.push(img);
+          const img = this.addTileImage(key, x, y, 0);
           if (ch === 'w') this.waterImgs.push(img);
+          this.addEdges(x, y, ch);
         }
         if (BLOCKING_CHARS.has(ch)) this.staticBlocked[y * this.cols + x] = 1;
         if (ch === 't') {
           const tkey = (x * 31 + y * 17) % 5 === 0 ? 'treeRound' : (x + y) % 2 ? 'tree' : 'tree2';
+          this.groundShadow(x * TILE + 16, y * TILE + 32, 40, 12, 0.5);
           const t = this.add.image(x * TILE + 16, y * TILE + 32, this.tex(tkey)).setOrigin(0.5, 1).setDepth(y * TILE + 32);
           t.setData('base', tkey);
           this.treeImgs.push(t);
@@ -305,6 +372,7 @@ export class WorldScene extends Phaser.Scene {
       }
       if (obj.type === 'node') {
         const texKey = this.nodeTexture(obj.material);
+        this.groundShadow(obj.x * TILE + 16, obj.y * TILE + 32, 26, 8, 0.45);
         const img = this.add.image(obj.x * TILE + 16, obj.y * TILE + 32, this.tex(texKey)).setOrigin(0.5, 1).setDepth(obj.y * TILE + 32);
         img.setData('base', texKey);
         const bar = this.add.graphics().setDepth(4000).setVisible(false);
@@ -320,6 +388,9 @@ export class WorldScene extends Phaser.Scene {
         const vis = this.condVisible(obj.showWhen, obj.hideWhen);
         n.visible = vis;
         spr.setVisible(vis);
+        const sh = this.groundShadow(spr.x, spr.y + 1, 22, 8, 0.5);
+        sh.setVisible(vis);
+        spr.setData('shadow', sh);
         if (vis) this.blockRects([{ x: obj.x, y: obj.y, w: 1, h: 1 }], 1);
       }
     }
@@ -347,13 +418,20 @@ export class WorldScene extends Phaser.Scene {
     return { madeira: 'nodeWood', pedra: 'nodeStone', folhas: 'nodeLeaves', fibra: 'nodeFiber', flor: 'nodeFlower', po_encanto: 'nodeDust', flor_lua: 'nodeMoonFlower' }[material] ?? 'nodeWood';
   }
 
+  /** Textura da mobília na orientação `rot` (0 sul, 1 leste, 2 norte, 3 oeste). */
+  furnTexture(item: string, rot: number): string {
+    const base = ITEMS[item].icon;
+    const key = `${base}_${['south', 'east', 'north', 'west'][((rot % 4) + 4) % 4]}`;
+    return this.textures.exists(key) ? key : base;
+  }
+
   private buildPlaced(): void {
     for (const p of game.placedIn(this.mapId)) this.addPlacedSprite(p);
   }
 
   private addPlacedSprite(p: PlacedItem): WPlaced {
     const item = ITEMS[p.item];
-    const img = this.add.image(p.x * TILE + 16, p.y * TILE + 16, item.icon).setAngle(p.rot * 90);
+    const img = this.add.image(p.x * TILE + 16, p.y * TILE + 16, this.furnTexture(p.item, p.rot));
     img.setDepth(item.walkable ? 2 : p.y * TILE + 32);
     const w: WPlaced = { data: p, sprite: img };
     this.placed.push(w);
@@ -447,6 +525,7 @@ export class WorldScene extends Phaser.Scene {
   // =========================================================================
   update(time: number, delta: number): void {
     this.animateWater(delta);
+    this.updateAmbient(time, delta);
     this.nodeTimer += delta;
     if (this.nodeTimer > 250) { this.nodeTimer = 0; this.updateNodeVisuals(false); }
 
@@ -513,6 +592,8 @@ export class WorldScene extends Phaser.Scene {
     const anim = `player_${game.data.species}_walk_${this.dir}`;
     if (this.player.anims.currentAnim?.key !== anim || !this.player.anims.isPlaying) this.player.play(anim, true);
     this.player.anims.msPerFrame = run ? 80 : 125;
+    this.puffTimer += delta;
+    if (this.puffTimer > (run ? 140 : 320)) { this.puffTimer = 0; this.puffAt(this.player.x - dx * 6, this.player.y - 2); }
     this.player.setDepth(this.player.y);
     this.shadow.setPosition(this.player.x, this.player.y - 2);
     this.checkDoors();
@@ -636,6 +717,7 @@ export class WorldScene extends Phaser.Scene {
         sfx('open');
         game.setFlag('window_open');
         this.lightBurst();
+        this.buildAmbient();
         this.say(narrator(...TEXTS.windowOpen));
         break;
       case 'photo':
@@ -702,6 +784,8 @@ export class WorldScene extends Phaser.Scene {
     it.removed = true;
     this.blockObj(it.obj, it.sprite, false);
     game.setFlag(`removed_${this.mapId}_${it.obj.id}`);
+    const sh = it.sprite.getData('shadow') as Phaser.GameObjects.Image | undefined;
+    if (sh) this.tweens.add({ targets: sh, alpha: 0, duration: 220 });
     this.tweens.add({ targets: it.sprite, alpha: 0, scaleX: 0.6, scaleY: 0.6, duration: 220, onComplete: () => it.sprite.setVisible(false) });
     if (this.target?.ref === it) { this.clearTargetTint(); this.target = null; }
   }
@@ -826,6 +910,7 @@ export class WorldScene extends Phaser.Scene {
       this.blockRects([{ x: n.obj.x, y: n.obj.y, w: 1, h: 1 }], vis ? 1 : -1);
       if (vis) this.unstickPlayer(); // NPC pode surgir no tile onde o jogador está
       n.sprite.setVisible(vis);
+      (n.sprite.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(vis);
       if (vis && animate) { n.sprite.setAlpha(0); this.tweens.add({ targets: n.sprite, alpha: 1, duration: 500 }); this.sparkleAt(n.sprite.x, n.sprite.y - 20, 5); }
     }
     for (const it of this.interacts) {
@@ -845,12 +930,16 @@ export class WorldScene extends Phaser.Scene {
     this.restoring = true;
     this.vibrant = true;
     sfx('restore');
+    this.restoreRing(cx, cy);
     const swap = (img: Phaser.GameObjects.Image, base: string, x: number, y: number, extraSparkle: boolean) => {
       const d = Math.hypot(x - cx, y - cy);
       this.time.delayedCall(d * 3 + Phaser.Math.Between(0, 80), () => {
         if (!img.active) return;
         if (this.textures.exists(base)) img.setTexture(base);
         if (extraSparkle && Math.random() < 0.25) this.sparkleAt(x, y, 1);
+        // pulso de luz no objeto restaurado
+        img.setTint(0xfff2c8);
+        this.time.delayedCall(140, () => { if (img.active && this.target?.ref.sprite !== img) img.clearTint(); });
       });
     };
     for (const t of this.tileImgs) swap(t, t.getData('base'), t.x + 16, t.y + 16, false);
@@ -868,8 +957,104 @@ export class WorldScene extends Phaser.Scene {
     this.time.delayedCall(maxD * 3 + 300, () => {
       this.restoring = false;
       if (this.def.musicRestored) music.play(this.def.musicRestored);
+      this.buildAmbient();
       onDone?.();
     });
+  }
+
+  /** Anel de luz que se expande a partir do ponto de restauração (acompanha a onda de troca de texturas). */
+  private restoreRing(cx: number, cy: number): void {
+    const maxD = Math.hypot(this.cols * TILE, this.rows * TILE);
+    const g = this.add.graphics().setDepth(5500);
+    const state = { r: 8 };
+    this.tweens.add({
+      targets: state, r: maxD, duration: maxD * 3, ease: 'Linear',
+      onUpdate: () => {
+        g.clear();
+        const a = Phaser.Math.Clamp(1 - state.r / maxD, 0, 1);
+        g.lineStyle(6, 0xfff2c8, 0.35 * a); g.strokeCircle(cx, cy, state.r);
+        g.lineStyle(2, 0xffffff, 0.8 * a); g.strokeCircle(cx, cy, state.r);
+        g.lineStyle(3, 0xffc857, 0.5 * a); g.strokeCircle(cx, cy, Math.max(0, state.r - 10));
+      },
+      onComplete: () => g.destroy(),
+    });
+    // flash suave na tela
+    const flash = this.add.graphics().setDepth(7000).setScrollFactor(0);
+    flash.fillStyle(0xfff2c8, 0.35);
+    flash.fillRect(-2000, -2000, 6000, 6000);
+    this.tweens.add({ targets: flash, alpha: 0, duration: 700, onComplete: () => flash.destroy() });
+  }
+
+  // =========================================================================
+  // efeitos ambientais (folhas, pétalas, vaga-lumes, poeira, luz da janela)
+  // =========================================================================
+  private buildAmbient(): void {
+    for (const a of this.ambient) a.img.destroy();
+    this.ambient = [];
+    this.beam?.destroy(); this.beam = null;
+    const mapW = this.cols * TILE; const mapH = this.rows * TILE;
+    const spawn = (kind: 'leaf' | 'petal' | 'firefly' | 'mote', n: number, area: { x: number; y: number; w: number; h: number }) => {
+      for (let i = 0; i < n; i++) {
+        const tex = kind === 'leaf' ? `fx_leaf${i % 3}` : kind === 'petal' ? `fx_petal${i % 3}` : kind === 'firefly' ? 'fx_firefly' : 'fx_mote';
+        const img = this.add.image(area.x + Math.random() * area.w, area.y + Math.random() * area.h, tex).setDepth(kind === 'mote' ? 3 : 4500).setAlpha(kind === 'firefly' ? 0.9 : 0.85);
+        img.setData('area', area);
+        const vx = kind === 'firefly' ? 0 : kind === 'mote' ? 2 : 10 + Math.random() * 10;
+        const vy = kind === 'leaf' ? 14 + Math.random() * 10 : kind === 'petal' ? 10 + Math.random() * 8 : kind === 'mote' ? 3 : 0;
+        this.ambient.push({ img, vx, vy, phase: Math.random() * Math.PI * 2, kind });
+      }
+    };
+    const all = { x: 0, y: 0, w: mapW, h: mapH };
+    if (this.mapId === 'praca') spawn(this.vibrant ? 'petal' : 'leaf', 14, all);
+    if (this.mapId === 'floresta') { spawn('firefly', 12, all); spawn('leaf', 6, all); }
+    if (this.mapId === 'atelier' && game.flag('window_open')) {
+      // feixe de luz da janela (tile 7,1) caindo no chão
+      this.beam = this.add.image(7 * TILE + 4, 1 * TILE + 26, 'fx_beam').setOrigin(0.25, 0).setDepth(3).setAlpha(this.vibrant ? 0.75 : 0.55);
+      this.beam.setBlendMode(Phaser.BlendModes.ADD);
+      spawn('mote', 10, { x: 7 * TILE - 10, y: 2 * TILE, w: 90, h: 110 });
+    }
+  }
+
+  private updateAmbient(time: number, delta: number): void {
+    if (this.ambient.length === 0 && !this.beam) return;
+    const dt = delta / 1000;
+    const t = time / 1000;
+    for (const a of this.ambient) {
+      const area = a.img.getData('area') as { x: number; y: number; w: number; h: number };
+      if (a.kind === 'firefly') {
+        a.img.x += Math.cos(t * 0.7 + a.phase) * 12 * dt;
+        a.img.y += Math.sin(t * 1.1 + a.phase * 1.3) * 10 * dt;
+        a.img.setAlpha(0.35 + 0.65 * Math.abs(Math.sin(t * 2 + a.phase)));
+      } else if (a.kind === 'mote') {
+        a.img.x += Math.sin(t * 0.8 + a.phase) * 4 * dt;
+        a.img.y += a.vy * dt;
+        a.img.setAlpha(0.3 + 0.5 * Math.abs(Math.sin(t * 1.5 + a.phase)));
+      } else {
+        a.img.x += (a.vx * 0.5 + Math.sin(t * 2 + a.phase) * a.vx) * dt;
+        a.img.y += a.vy * dt;
+        a.img.setAngle(Math.sin(t * 3 + a.phase) * 35);
+      }
+      if (a.img.y > area.y + area.h + 8) { a.img.y = area.y - 8; a.img.x = area.x + Math.random() * area.w; }
+      if (a.img.x > area.x + area.w + 8) a.img.x = area.x - 8;
+      if (a.img.x < area.x - 8) a.img.x = area.x + area.w + 8;
+      if (a.img.y < area.y - 8) a.img.y = area.y + area.h;
+    }
+    if (this.beam) this.beam.setAlpha((this.vibrant ? 0.7 : 0.5) + 0.08 * Math.sin(t * 1.3));
+    // brilhos na fonte restaurada
+    if (this.mapId === 'praca' && this.vibrant) {
+      this.fountainSparkleTimer += delta;
+      if (this.fountainSparkleTimer > 900) {
+        this.fountainSparkleTimer = 0;
+        const f = this.interacts.find((i) => i.obj.kind === 'fountain');
+        if (f) this.sparkleAt(f.sprite.x + 48 + Phaser.Math.Between(-30, 30), f.sprite.y + 60 + Phaser.Math.Between(-10, 10), 1);
+      }
+    }
+  }
+
+  /** Nuvenzinha de poeira nos pés ao andar/correr. */
+  private puffAt(x: number, y: number): void {
+    if (this.def.indoor && this.mapId !== 'atelier') return;
+    const p = this.add.image(x + Phaser.Math.Between(-3, 3), y, 'fx_puff').setDepth(this.player.y - 1).setAlpha(0.7).setScale(0.6);
+    this.tweens.add({ targets: p, alpha: 0, scale: 1.2, y: y - 6, duration: 380, onComplete: () => p.destroy() });
   }
 
   /** Sequência final: fragmento levado à fonte (README §15). */
@@ -961,7 +1146,8 @@ export class WorldScene extends Phaser.Scene {
     this.decorGhost = null;
     if (!this.decorItem) return;
     const item = ITEMS[this.decorItem];
-    this.decorGhost = this.add.image(0, 0, item.icon).setAlpha(0.65).setDepth(5001).setAngle(this.decorRot * 90);
+    void item;
+    this.decorGhost = this.add.image(0, 0, this.furnTexture(this.decorItem, this.decorRot)).setAlpha(0.65).setDepth(5001);
   }
 
   private setDecorTile(tx: number, ty: number): void {
@@ -1057,14 +1243,14 @@ export class WorldScene extends Phaser.Scene {
     if (this.decorItem) {
       if (ITEMS[this.decorItem].hang) return; // pendurados têm uma só vista
       this.decorRot = (this.decorRot + 1) % 4;
-      this.decorGhost?.setAngle(this.decorRot * 90);
+      this.decorGhost?.setTexture(this.furnTexture(this.decorItem, this.decorRot));
       sfx('select');
       return;
     }
     const existing = this.placedAt(this.decorTile.x, this.decorTile.y);
     if (existing && !ITEMS[existing.data.item].hang) {
       game.rotatePlaced(this.mapId, existing.data.uid);
-      existing.sprite.setAngle(existing.data.rot * 90);
+      existing.sprite.setTexture(this.furnTexture(existing.data.item, existing.data.rot));
       sfx('select');
     }
   }

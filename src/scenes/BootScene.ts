@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { generateAllTextures } from '../art/textures';
-import { textStyle } from '../ui/widgets';
+import { hudStyle } from '../ui/widgets';
 
 /** Gera toda a pixel art em memória e segue para o título. */
 export class BootScene extends Phaser.Scene {
@@ -8,7 +8,7 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
-    const t = this.add.text(width / 2, height / 2, 'Desenhando a vila...', textStyle(16)).setOrigin(0.5);
+    const t = this.add.text(width / 2, height / 2, 'Desenhando a vila...', hudStyle(16)).setOrigin(0.5);
     // Deixa o texto aparecer antes do trabalho síncrono de geração.
     this.time.delayedCall(40, () => {
       const t0 = performance.now();

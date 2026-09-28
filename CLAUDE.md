@@ -55,7 +55,8 @@ src/art/pix.ts             buffer de pixels (rect, disc, line, triangle, outline
 src/art/tiles.ts           tiles 32 px: grama, caminho, pedra, água (3 frames), piso, parede, cerca…
 src/art/characters.ts      gerador dos personagens 32×48 (3 espécies do jogador + 3 NPCs), 4 direções × (parado + 4 frames)
 src/art/objects.ts         props, pontos de coleta, fachadas (velha/restaurada), fonte, mobílias, ícones de itens e UI, escritório
-src/art/textures.ts        registra tudo no Phaser; gera automaticamente a variante `__faded` de cada textura
+src/art/ui.ts              molduras 9-slice, botões, slots, joystick e ícones de UI (texturas ui_*)
+src/art/textures.ts        registra tudo no Phaser; gera automaticamente a variante `__faded` de cada textura e os 9 frames das molduras
 src/audio/music.ts         sequenciador chiptune por mapa (title, office, atelier, praca, praca_restored, floresta, loja, loja_restored, ending)
 src/audio/sfx.ts           efeitos curtos por osciladores
 src/data/items.ts          materiais, itens-chave e mobílias com atributos (aconchego / iluminação / natural)
@@ -70,8 +71,14 @@ src/scenes/IntroScene.ts   cinemática (escritório → anúncio → ônibus →
 src/scenes/WorldScene.ts   mapa, jogador, colisão, portas, interações, coleta, NPCs, restauração, modo decoração, sequência da fonte
 src/scenes/UIScene.ts      HUD, diálogo, mochila, caderno (5 abas), mapa, crafting, HUD de decoração, controles de toque
 src/scenes/EndingScene.ts  carta misteriosa e fim do capítulo 1
+src/ui/widgets.ts          PixelPanel (9-slice em Canvas), Button, RoundButton, PixelBar, textStyle/hudStyle
 tools/smoke.mjs            playthrough automatizado (Playwright + Chrome local)
 tools/diag.mjs             diagnóstico de boot
+tools/serve.sh             reinicia o `vite preview` (ele guarda o index.html em cache; reiniciar após cada build)
+tools/peek.mjs             captura rápida de cada mapa (velho/restaurado), painéis e diálogo
+tools/atlas.mjs            folha de contato de todas as texturas ampliadas (por grupo)
+tools/furn.mjs             ateliê com todas as mobílias nas 4 orientações
+tools/panels.mjs           mochila, caderno (missões/receitas) e crafting com itens de teste
 ```
 
 ## 5. Sistemas implementados (mapeamento com o README)
