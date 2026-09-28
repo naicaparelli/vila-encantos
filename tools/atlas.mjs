@@ -17,13 +17,16 @@ const groups = {
   tiles: (k) => k.startsWith('tile_') && !k.endsWith('__faded'),
   tiles_faded: (k) => k.startsWith('tile_') && k.endsWith('__faded'),
   chars: (k) => k.startsWith('player_') || k.startsWith('npc_'),
-  props: (k) => !k.startsWith('tile_') && !k.startsWith('player_') && !k.startsWith('npc_') && !k.startsWith('furn_') && !k.startsWith('icon_') && !k.startsWith('ui_') && !k.startsWith('facade') && !k.startsWith('house') && !k.endsWith('__faded') && !k.startsWith('thumb'),
+  portraits: (k) => k.startsWith('portrait_'),
+  props: (k) => !k.startsWith('tile_') && !k.startsWith('player_') && !k.startsWith('npc_') && !k.startsWith('portrait_') && !k.startsWith('furn_') && !k.startsWith('icon_') && !k.startsWith('ui_') && !k.startsWith('facade') && !k.startsWith('house') && !k.endsWith('__faded') && !k.startsWith('thumb'),
   buildings: (k) => (k.startsWith('facade') || k.startsWith('house')) && !k.endsWith('__faded'),
   furniture: (k) => k.startsWith('furn_') && !k.endsWith('__faded'),
   icons: (k) => (k.startsWith('icon_') || k.startsWith('ui_') || k.startsWith('thumb')),
 };
 
+const only = process.argv[4];
 for (const [name, filter] of Object.entries(groups)) {
+  if (only && name !== only) continue;
   const dataUrl = await page.evaluate(([filterSrc, scale]) => {
     const filter = new Function('k', `return (${filterSrc})(k)`);
     const tm = window.__game.textures;

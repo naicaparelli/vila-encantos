@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { TILE_GENERATORS } from './tiles';
 import { OBJECT_GENERATORS, NO_FADE_PREFIXES, mapThumb } from './objects';
-import { buildCharacterSheet, PLAYER_LOOKS, NPC_LOOKS, DIRS } from './characters';
+import { buildCharacterSheet, drawPortrait, PLAYER_LOOKS, NPC_LOOKS, DIRS } from './characters';
 import { fade } from './palette';
 import { CHAR_W, CHAR_H } from '../config';
 import type { Pix } from './pix';
@@ -32,8 +32,8 @@ export function generateAllTextures(scene: Phaser.Scene): void {
   for (const kind of ['atelier', 'praca', 'floresta', 'loja'] as const) addPix(scene, `thumb_${kind}`, mapThumb(kind));
 
   const sheets: Record<string, ReturnType<typeof buildCharacterSheet>> = {};
-  for (const [species, look] of Object.entries(PLAYER_LOOKS)) sheets[`player_${species}`] = buildCharacterSheet(look);
-  for (const [id, look] of Object.entries(NPC_LOOKS)) sheets[`npc_${id}`] = buildCharacterSheet(look);
+  for (const [species, look] of Object.entries(PLAYER_LOOKS)) { sheets[`player_${species}`] = buildCharacterSheet(look); addPix(scene, `portrait_player_${species}`, drawPortrait(look)); }
+  for (const [id, look] of Object.entries(NPC_LOOKS)) { sheets[`npc_${id}`] = buildCharacterSheet(look); addPix(scene, `portrait_npc_${id}`, drawPortrait(look)); }
 
   for (const [key, sheet] of Object.entries(sheets)) {
     if (scene.textures.exists(key)) scene.textures.remove(key);
