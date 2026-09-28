@@ -29,6 +29,9 @@ export interface SaveData {
   map: MapId;
   x: number;
   y: number;
+  /** Posição exata em pixels (opcional; `x`/`y` em tiles são o fallback). */
+  px?: number;
+  py?: number;
   memories: string[];
   encantos: string[];
   materialsSeen: string[];
@@ -301,10 +304,12 @@ class GameState extends Phaser.Events.EventEmitter {
   }
 
   // ------------------------------------------------------------- posição
-  setPosition(map: MapId, x: number, y: number): void {
+  setPosition(map: MapId, x: number, y: number, px?: number, py?: number): void {
     this.data.map = map;
     this.data.x = x;
     this.data.y = y;
+    this.data.px = px;
+    this.data.py = py;
     this.scheduleSave();
   }
 }

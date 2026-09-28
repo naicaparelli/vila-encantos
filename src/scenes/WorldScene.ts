@@ -9,7 +9,8 @@ import { sfx } from '../audio/sfx';
 import type { Dir } from '../art/characters';
 import type { UIScene } from './UIScene';
 
-export interface WorldStartData { map: MapId; x: number; y: number; dir?: Dir; arrival?: boolean }
+/** `x`/`y` em tiles; `px`/`py` (opcionais) restauram a posição exata em pixels de um save. */
+export interface WorldStartData { map: MapId; x: number; y: number; px?: number; py?: number; dir?: Dir; arrival?: boolean }
 
 interface WInteract { obj: InteractObj; sprite: Phaser.GameObjects.Image; done: boolean; removed: boolean }
 interface WNode { obj: NodeObj; sprite: Phaser.GameObjects.Image; bar: Phaser.GameObjects.Graphics; label: Phaser.GameObjects.Text }
@@ -32,6 +33,8 @@ export class WorldScene extends Phaser.Scene {
   rows = 0;
   private staticBlocked: Uint8Array = new Uint8Array(0);
   private dynBlocked = new Map<string, number>();
+  /** Bloqueios em pixels (mundo), por id de objeto. */
+  private pxBlocked = new Map<string, Array<{ x: number; y: number; w: number; h: number }>>();
   private tileImgs: Phaser.GameObjects.Image[] = [];
   private waterImgs: Phaser.GameObjects.Image[] = [];
   private interacts: WInteract[] = [];
@@ -97,7 +100,7 @@ export class WorldScene extends Phaser.Scene {
   // criação
   // =========================================================================
   init(data: WorldStartData): void {
-    this.startData = data ?? { map: game.data.map, x: game.data.x, y: game.data.y };
+    this.startData = data ?? { map: game.data.map, x: game.data.x, y: game.data.y, px: game.data.px, py: game.data.py };
   }
 
   create(): void {
@@ -112,6 +115,7 @@ export class WorldScene extends Phaser.Scene {
     this.target = null;
     this.lastPrompt = '';
     this.dynBlocked.clear();
+    this.pxBlocked.clear();
     this.tileImgs = []; this.waterImgs = []; this.interacts = []; this.nodes = []; this.npcs = []; this.props = []; this.doors = []; this.placed = []; this.treeImgs = [];
     this.decorMode = false; this.decorItem = null; this.decorGhost = null;
     this.mobile = { dx: 0, dy: 0, run: false };
@@ -236,6 +240,20 @@ export class WorldScene extends Phaser.Scene {
         }
   }
 
+  /** Liga/desliga os bloqueios (em tiles e em pixels) de um prop ou interação. */
+  private blockObj(obj: PropObj | InteractObj, sprite: Phaser.GameObjects.Image, on: boolean): void {
+    this.blockRects(obj.blocks, on ? 1 : -1);
+    if (!obj.pxBlocks) return;
+    if (on) this.pxBlocked.set(obj.id, obj.pxBlocks.map((r) => ({ x: sprite.x + r.x, y: sprite.y + r.y, w: r.w, h: r.h })));
+    else this.pxBlocked.delete(obj.id);
+  }
+
+  private isBlockedPx(px: number, py: number): boolean {
+    for (const rects of this.pxBlocked.values())
+      for (const r of rects) if (px >= r.x && px < r.x + r.w && py >= r.y && py < r.y + r.h) return true;
+    return false;
+  }
+
   isBlocked(tx: number, ty: number): boolean {
     if (tx < 0 || ty < 0 || tx >= this.cols || ty >= this.rows) return true;
     if (this.staticBlocked[ty * this.cols + tx]) return true;
@@ -255,7 +273,12 @@ export class WorldScene extends Phaser.Scene {
         const vis = this.condVisible(obj.showWhen, obj.hideWhen);
         p.visible = vis;
         img.setVisible(vis);
-        if (vis) this.blockRects(obj.blocks, 1);
+        if (vis) this.blockObj(obj, img, true);
+        if (!obj.flat && img.displayWidth <= 96) {
+          const sh = this.groundShadow(img.x + img.displayWidth / 2, img.y + img.displayHeight, img.displayWidth * 0.9);
+          sh.setVisible(vis);
+          img.setData('shadow', sh);
+        }
         continue;
       }
       if (obj.type === 'interact') {
@@ -271,7 +294,12 @@ export class WorldScene extends Phaser.Scene {
         this.interacts.push(it);
         const vis = this.condVisible(obj.showWhen, obj.hideWhen);
         img.setVisible(vis);
-        if (vis) this.blockRects(obj.blocks, 1); else it.removed = true;
+        if (vis) this.blockObj(obj, img, true); else it.removed = true;
+        if (!obj.flat && obj.kind !== 'fountain') {
+          const sh = this.groundShadow(img.x + img.displayWidth / 2, img.y + img.displayHeight, img.displayWidth * 0.85);
+          sh.setVisible(vis);
+          img.setData('shadow', sh);
+        }
         if (obj.kind === 'fountain' && game.flag('praca_restored')) { img.setTexture('fountainFlow0'); img.setData('base', 'fountainFlow0'); }
         continue;
       }
@@ -329,7 +357,7 @@ export class WorldScene extends Phaser.Scene {
     img.setDepth(item.walkable ? 2 : p.y * TILE + 32);
     const w: WPlaced = { data: p, sprite: img };
     this.placed.push(w);
-    if (!item.walkable) this.blockRects([{ x: p.x, y: p.y, w: 1, h: 1 }], 1);
+    if (this.occupiesFloor(p.item)) this.blockRects([{ x: p.x, y: p.y, w: 1, h: 1 }], 1);
     return w;
   }
 
@@ -337,8 +365,29 @@ export class WorldScene extends Phaser.Scene {
     const key = `player_${game.data.species}`;
     this.dir = this.startData.dir ?? 'south';
     this.shadow = this.add.image(0, 0, 'shadow').setOrigin(0.5, 0.5).setDepth(1).setAlpha(0.8);
-    this.player = this.add.sprite(this.startData.x * TILE + 16, this.startData.y * TILE + 28, key, `${this.dir}_0`).setOrigin(0.5, 1);
+    const sx = this.startData.px ?? this.startData.x * TILE + 16;
+    const sy = this.startData.py ?? this.startData.y * TILE + 28;
+    this.player = this.add.sprite(sx, sy, key, `${this.dir}_0`).setOrigin(0.5, 1);
+    this.unstickPlayer();
     this.player.setDepth(this.player.y);
+    this.shadow.setPosition(this.player.x, this.player.y - 2);
+  }
+
+  /**
+   * Garante que o personagem não nasça (nem fique) dentro de um bloqueio — por exemplo um save feito
+   * numa faixa estreita ao lado de um objeto com colisão em pixels, ou um NPC que aparece no tile dele.
+   * Procura a posição livre mais próxima em anéis de até 2 tiles.
+   */
+  private unstickPlayer(): void {
+    if (!this.player) return;
+    const { x, y } = this.player;
+    if (this.fits(x, y)) return;
+    for (let r = 4; r <= 64; r += 4)
+      for (let dy = -r; dy <= r; dy += 4)
+        for (let dx = -r; dx <= r; dx += 4) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          if (this.fits(x + dx, y + dy)) { this.player.setPosition(x + dx, y + dy); this.shadow.setPosition(this.player.x, this.player.y - 2); return; }
+        }
   }
 
   private buildInput(): void {
@@ -401,7 +450,7 @@ export class WorldScene extends Phaser.Scene {
     this.nodeTimer += delta;
     if (this.nodeTimer > 250) { this.nodeTimer = 0; this.updateNodeVisuals(false); }
 
-    if (this.decorMode) { this.updateDecor(time); this.idle(); return; }
+    if (this.decorMode) { this.updateDecor(time, delta); return; }
     if (this.paused || this.transitioning) { this.idle(); this.actionQueued = false; this.decorToggleQueued = false; this.rotateQueued = false; this.escQueued = false; return; }
 
     this.updateMovement(delta);
@@ -419,7 +468,7 @@ export class WorldScene extends Phaser.Scene {
 
     if (time - this.lastSavePos > 2000) {
       this.lastSavePos = time;
-      game.setPosition(this.mapId, Math.floor(this.player.x / TILE), Math.floor((this.player.y - 4) / TILE));
+      game.setPosition(this.mapId, Math.floor(this.player.x / TILE), Math.floor((this.player.y - 4) / TILE), this.player.x, this.player.y);
     }
   }
 
@@ -480,7 +529,7 @@ export class WorldScene extends Phaser.Scene {
   private fits(x: number, y: number): boolean {
     const hw = 6; const top = 8;
     const pts = [[x - hw, y - top], [x + hw, y - top], [x - hw, y - 1], [x + hw, y - 1]];
-    return pts.every(([px, py]) => !this.isBlocked(Math.floor(px / TILE), Math.floor(py / TILE)));
+    return pts.every(([px, py]) => !this.isBlocked(Math.floor(px / TILE), Math.floor(py / TILE)) && !this.isBlockedPx(px, py));
   }
 
   private feetTile(): { x: number; y: number } {
@@ -492,7 +541,7 @@ export class WorldScene extends Phaser.Scene {
     const { x, y } = this.feetTile();
     for (const d of this.doors) {
       const w = d.w ?? 1; const h = d.h ?? 1;
-      if (x >= d.x && x < d.x + w && y >= d.y && y < d.y + h) { this.goTo(d); return; }
+      if (x >= d.x && x < d.x + w && y >= d.y && y < d.y + h) { this.exitDecor(); this.goTo(d); return; }
     }
   }
 
@@ -651,7 +700,7 @@ export class WorldScene extends Phaser.Scene {
 
   private removeInteract(it: WInteract): void {
     it.removed = true;
-    this.blockRects(it.obj.blocks, -1);
+    this.blockObj(it.obj, it.sprite, false);
     game.setFlag(`removed_${this.mapId}_${it.obj.id}`);
     this.tweens.add({ targets: it.sprite, alpha: 0, scaleX: 0.6, scaleY: 0.6, duration: 220, onComplete: () => it.sprite.setVisible(false) });
     if (this.target?.ref === it) { this.clearTargetTint(); this.target = null; }
@@ -760,7 +809,8 @@ export class WorldScene extends Phaser.Scene {
       const vis = this.condVisible(p.obj.showWhen, p.obj.hideWhen);
       if (vis === p.visible) continue;
       p.visible = vis;
-      this.blockRects(p.obj.blocks, vis ? 1 : -1);
+      this.blockObj(p.obj, p.sprite, vis);
+      (p.sprite.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(vis);
       if (vis) {
         p.sprite.setVisible(true).setAlpha(0);
         this.tweens.add({ targets: p.sprite, alpha: 1, duration: animate ? 500 : 0 });
@@ -774,15 +824,16 @@ export class WorldScene extends Phaser.Scene {
       if (vis === n.visible) continue;
       n.visible = vis;
       this.blockRects([{ x: n.obj.x, y: n.obj.y, w: 1, h: 1 }], vis ? 1 : -1);
+      if (vis) this.unstickPlayer(); // NPC pode surgir no tile onde o jogador está
       n.sprite.setVisible(vis);
       if (vis && animate) { n.sprite.setAlpha(0); this.tweens.add({ targets: n.sprite, alpha: 1, duration: 500 }); this.sparkleAt(n.sprite.x, n.sprite.y - 20, 5); }
     }
     for (const it of this.interacts) {
       if (it.removed && !it.sprite.visible && !game.flag(`removed_${this.mapId}_${it.obj.id}`)) {
         const vis = this.condVisible(it.obj.showWhen, it.obj.hideWhen);
-        if (vis) { it.removed = false; it.sprite.setVisible(true).setAlpha(1); this.blockRects(it.obj.blocks, 1); if (animate) this.sparkleAt(it.sprite.x + 8, it.sprite.y + 8, 4); }
+        if (vis) { it.removed = false; it.sprite.setVisible(true).setAlpha(1); (it.sprite.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(true); this.blockObj(it.obj, it.sprite, true); if (animate) this.sparkleAt(it.sprite.x + 8, it.sprite.y + 8, 4); }
       } else if (!it.removed && it.obj.hideWhen && game.flag(it.obj.hideWhen)) {
-        it.removed = true; it.sprite.setVisible(false); this.blockRects(it.obj.blocks, -1);
+        it.removed = true; it.sprite.setVisible(false); (it.sprite.getData('shadow') as Phaser.GameObjects.Image | undefined)?.setVisible(false); this.blockObj(it.obj, it.sprite, false);
       }
       if (it.obj.kind === 'sign' && game.flag('praca_restored') && !it.done) { it.done = true; it.sprite.setTexture('signOk'); }
     }
@@ -928,32 +979,44 @@ export class WorldScene extends Phaser.Scene {
 
   canPlaceAt(tx: number, ty: number, item: string): boolean {
     const ch = this.charAt(tx, ty);
-    if (!this.def.floorChars.includes(ch)) return false;
+    const def = ITEMS[item];
     if (this.placedAt(tx, ty)) return false;
+    if (def.hang) {
+      // pendurados ficam no próprio tile da parede de fundo (com chão logo abaixo) ou sobre uma janela
+      if (def.hang === 'window') return this.windowAt(tx, ty);
+      return ch === '#' && this.def.floorChars.includes(this.charAt(tx, ty + 1)) && !this.windowAt(tx, ty);
+    }
+    if (!this.def.floorChars.includes(ch)) return false;
     if (this.isBlocked(tx, ty)) return false;
     const f = this.feetTile();
-    if (f.x === tx && f.y === ty && !ITEMS[item].walkable) return false;
-    if (ITEMS[item].wall && this.charAt(tx, ty - 1) !== '#') return false;
+    if (f.x === tx && f.y === ty && !def.walkable) return false;
+    if (def.wall && this.charAt(tx, ty - 1) !== '#') return false;
     return true;
   }
 
-  private updateDecor(time: number): void {
-    if (this.paused) { this.actionQueued = false; this.rotateQueued = false; this.decorToggleQueued = false; this.escQueued = false; return; }
-    // mover cursor pelo teclado / joystick (com repetição)
-    let dx = 0; let dy = 0;
-    if (this.cursors.left.isDown || this.keys.A.isDown) dx = -1;
-    else if (this.cursors.right.isDown || this.keys.D.isDown) dx = 1;
-    else if (this.cursors.up.isDown || this.keys.W.isDown) dy = -1;
-    else if (this.cursors.down.isDown || this.keys.S.isDown) dy = 1;
-    if (dx === 0 && dy === 0) {
-      if (Math.abs(this.mobile.dx) > 0.5) dx = Math.sign(this.mobile.dx);
-      else if (Math.abs(this.mobile.dy) > 0.5) dy = Math.sign(this.mobile.dy);
+  /** Há uma janela (prop ou interação com textura `window*`) neste tile? */
+  private windowAt(tx: number, ty: number): boolean {
+    const isWin = (o: { x: number; y: number; tex?: string }) => o.x === tx && o.y === ty && (o.tex ?? '').startsWith('window');
+    return this.props.some((p) => isWin(p.obj)) || this.interacts.some((i) => !i.removed && isWin(i.obj));
+  }
+
+  /** Mobília que ocupa o chão (bloqueia passagem): não é tapete nem pendurada. */
+  private occupiesFloor(item: string): boolean {
+    return !ITEMS[item].walkable && !ITEMS[item].hang;
+  }
+
+  private updateDecor(time: number, delta: number): void {
+    if (this.paused) { this.idle(); this.actionQueued = false; this.rotateQueued = false; this.decorToggleQueued = false; this.escQueued = false; return; }
+    // teclado / joystick movem o personagem; o cursor acompanha o tile à frente dele.
+    // Mouse e toque apontam o cursor diretamente (pointermove / pointerdown em buildInput).
+    const before = { x: this.player.x, y: this.player.y, dir: this.dir };
+    this.updateMovement(delta);
+    if (!this.decorMode) return; // saiu por uma porta
+    if (before.x !== this.player.x || before.y !== this.player.y || before.dir !== this.dir) {
+      const f = this.feetTile();
+      const [dx, dy] = DIR_VEC[this.dir];
+      this.setDecorTile(f.x + dx, f.y + dy);
     }
-    if ((dx !== 0 || dy !== 0) && time > this.decorMoveAt) {
-      this.decorMoveAt = time + 170;
-      this.setDecorTile(this.decorTile.x + dx, this.decorTile.y + dy);
-    }
-    if (dx === 0 && dy === 0) this.decorMoveAt = 0;
 
     if (time > this.inputCooldownUntil) {
       if (this.actionQueued) this.decorConfirm();
@@ -979,7 +1042,7 @@ export class WorldScene extends Phaser.Scene {
     } else if (existing) {
       // pegar item do chão e passar a segurá-lo
       const item = existing.data.item;
-      if (!ITEMS[item].walkable) this.blockRects([{ x, y, w: 1, h: 1 }], -1);
+      if (this.occupiesFloor(item)) this.blockRects([{ x, y, w: 1, h: 1 }], -1);
       game.pickUp(this.mapId, existing.data.uid);
       existing.sprite.destroy();
       this.placed = this.placed.filter((p) => p !== existing);
@@ -992,13 +1055,14 @@ export class WorldScene extends Phaser.Scene {
 
   decorRotate(): void {
     if (this.decorItem) {
+      if (ITEMS[this.decorItem].hang) return; // pendurados têm uma só vista
       this.decorRot = (this.decorRot + 1) % 4;
       this.decorGhost?.setAngle(this.decorRot * 90);
       sfx('select');
       return;
     }
     const existing = this.placedAt(this.decorTile.x, this.decorTile.y);
-    if (existing) {
+    if (existing && !ITEMS[existing.data.item].hang) {
       game.rotatePlaced(this.mapId, existing.data.uid);
       existing.sprite.setAngle(existing.data.rot * 90);
       sfx('select');

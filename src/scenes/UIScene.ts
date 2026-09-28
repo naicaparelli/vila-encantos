@@ -624,10 +624,10 @@ export class UIScene extends Phaser.Scene {
     this.decorHud.push(g);
     const item = this.world.decorInfo.item;
     const title = item ? `Decorando: ${ITEMS[item].name} (×${game.count(item)})` : 'Modo decoração — escolha uma mobília na mochila';
-    this.decorHud.push(this.add.text(bx + 12 * s, by + 8 * s, title, textStyle(11 * s, P.amber)).setDepth(601));
-    const hint = touch ? 'Toque no chão para mover o cursor; toque de novo para colocar/pegar.' : 'E/clique: colocar ou pegar · R: girar · WASD/mouse: mover cursor · F/Esc: sair';
-    this.decorHud.push(this.add.text(bx + 12 * s, by + 26 * s, hint, textStyle(9 * s, UI.textDim, { wordWrap: { width: bw - 150 * s } })).setDepth(601));
-    this.decorHud.push(new Button(this, bx + bw - 60 * s, by + bh / 2, 'Mochila', () => this.openPanel('inventory'), { width: 90 * s, height: 26 * s, fontSize: 10 * s }).setDepth(601));
+    this.decorHud.push(this.add.text(bx + (item ? 40 : 14) * s, by + 10 * s, title, textStyle(11 * s, UI.title)).setDepth(601));
+    const hint = touch ? 'Joystick: andar · toque no chão: apontar; toque de novo para colocar/pegar.' : 'WASD: andar · mouse: apontar · E/clique: colocar ou pegar · R: girar · F/Esc: sair';
+    this.decorHud.push(this.add.text(bx + (item ? 40 : 14) * s, by + 27 * s, hint, textStyle(8.5 * s, UI.textDim, { wordWrap: { width: bw - (item ? 150 : 124) * s } })).setDepth(601));
+    this.decorHud.push(new Button(this, bx + bw - 60 * s, by + bh / 2, 'Mochila', () => this.openPanel('inventory'), { width: 92 * s, height: 28 * s, fontSize: 10 * s }).setDepth(601));
     // requisitos da loja (missão 7)
     if (game.questActive('q7') && this.world.mapId === 'loja') {
       const q = QUESTS.q7;
