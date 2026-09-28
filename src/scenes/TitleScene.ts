@@ -3,7 +3,7 @@ import { SPECIES_INFO, type Species } from '../config';
 import { game } from '../state/GameState';
 import { music } from '../audio/music';
 import { sfx } from '../audio/sfx';
-import { Button, textStyle, uiScale, drawPanel, UI } from '../ui/widgets';
+import { Button, textStyle, hudStyle, uiScale, drawPanel, PixelPanel, UI } from '../ui/widgets';
 import { P } from '../art/palette';
 
 const SPECIES: Species[] = ['coelho', 'gato', 'cachorro'];
@@ -69,10 +69,10 @@ export class TitleScene extends Phaser.Scene {
     const y0 = height * 0.66;
     const hasSave = game.hasSave();
     if (hasSave) {
-      this.objects.push(new Button(this, width / 2, y0, 'Continuar', () => { sfx('select'); this.continueGame(); }, { width: 200 * s, height: 40 * s, fontSize: 15 * s, fill: UI.border }));
+      this.objects.push(new Button(this, width / 2, y0, 'Continuar', () => { sfx('select'); this.continueGame(); }, { width: 200 * s, height: 40 * s, fontSize: 15 * s, kind: 'primary' }));
     }
     this.objects.push(new Button(this, width / 2, y0 + (hasSave ? 50 * s : 0), 'Novo jogo', () => { sfx('select'); this.mode = 'select'; this.build(); }, { width: 200 * s, height: 40 * s, fontSize: 15 * s }));
-    this.objects.push(this.add.text(width / 2, height - 16 * s, 'WASD / setas: andar · Shift: correr · E: interagir · B: mochila · Tab: caderno · M: mapa · F: decorar', textStyle(9 * s, UI.textDim, { align: 'center', wordWrap: { width: width - 40 } })).setOrigin(0.5, 1));
+    this.objects.push(this.add.text(width / 2, height - 16 * s, 'WASD / setas: andar · Shift: correr · E: interagir · B: mochila · Tab: caderno · M: mapa · F: decorar', hudStyle(9 * s, P.lilacLight, { align: 'center', wordWrap: { width: width - 40 } })).setOrigin(0.5, 1));
   }
 
   private buildSelect(width: number, height: number, s0: number): void {
@@ -81,25 +81,18 @@ export class TitleScene extends Phaser.Scene {
     const panelH = Math.min(height - height * 0.3 - 12, 290 * s);
     const px = width / 2 - panelW / 2;
     const py = height * 0.3;
-    const g = this.add.graphics();
-    drawPanel(g, px, py, panelW, panelH);
-    this.objects.push(g);
-    this.objects.push(this.add.text(width / 2, py + 14 * s, 'Quem vai recomeçar a vida na vila?', textStyle(14 * s)).setOrigin(0.5, 0));
+    this.objects.push(drawPanel(this, px, py, panelW, panelH));
+    this.objects.push(this.add.text(width / 2, py + 14 * s, 'Quem vai recomeçar a vida na vila?', textStyle(14 * s, UI.title)).setOrigin(0.5, 0));
 
     const slotW = panelW / 3;
     SPECIES.forEach((sp, i) => {
       const cx = px + slotW * i + slotW / 2;
-      const cy = py + 90 * s;
       const sel = this.selected === sp;
-      const frame = this.add.graphics();
-      frame.fillStyle(sel ? UI.accent : UI.panelLight, sel ? 0.35 : 0.5);
-      frame.fillRoundedRect(cx - slotW / 2 + 8, py + 40 * s, slotW - 16, 130 * s, 8);
-      if (sel) { frame.lineStyle(2, UI.accent, 1); frame.strokeRoundedRect(cx - slotW / 2 + 8, py + 40 * s, slotW - 16, 130 * s, 8); }
-      this.objects.push(frame);
-      const spr = this.add.sprite(cx, cy + 20 * s, `player_${sp}`, 'south_0').setScale(2 * Math.min(1.4, s));
+      this.objects.push(new PixelPanel(this, cx - slotW / 2 + 8, py + 40 * s, slotW - 16, 130 * s, sel ? 'ui_slot_sel' : 'ui_slot'));
+      const spr = this.add.sprite(cx, py + 138 * s, `player_${sp}`, 'south_0').setOrigin(0.5, 1).setScale(2 * Math.min(1.4, s));
       if (sel) spr.play(`player_${sp}_walk_south`);
       this.objects.push(spr);
-      this.objects.push(this.add.text(cx, cy + 40 * s, SPECIES_INFO[sp].name, textStyle(12 * s, sel ? P.amber : UI.text)).setOrigin(0.5, 0));
+      this.objects.push(this.add.text(cx, py + 146 * s, SPECIES_INFO[sp].name, textStyle(12 * s, sel ? UI.title : UI.text)).setOrigin(0.5, 0));
       const zone = this.add.zone(cx, py + 105 * s, slotW - 16, 130 * s).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => { if (this.selected !== sp) { this.selected = sp; sfx('select'); this.build(); } });
       this.objects.push(zone);
@@ -110,7 +103,7 @@ export class TitleScene extends Phaser.Scene {
 
     const by = py + panelH - 24 * s;
     this.objects.push(new Button(this, width / 2 - 80 * s, by, 'Voltar', () => { this.mode = 'menu'; this.build(); }, { width: 130 * s, height: 32 * s, fontSize: 13 * s }));
-    this.objects.push(new Button(this, width / 2 + 80 * s, by, 'Começar', () => { sfx('quest'); this.startNew(); }, { width: 150 * s, height: 32 * s, fontSize: 13 * s, fill: UI.border }));
+    this.objects.push(new Button(this, width / 2 + 80 * s, by, 'Começar', () => { sfx('quest'); this.startNew(); }, { width: 150 * s, height: 32 * s, fontSize: 13 * s, kind: 'primary' }));
   }
 
   private startNew(): void {

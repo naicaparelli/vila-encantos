@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { game } from '../state/GameState';
 import { music } from '../audio/music';
 import { sfx } from '../audio/sfx';
-import { Button, textStyle, uiScale, drawPanel, UI } from '../ui/widgets';
+import { Button, textStyle, hudStyle, uiScale, drawPanel, PixelPanel, UI } from '../ui/widgets';
 import { P } from '../art/palette';
 
 interface Slide {
@@ -18,7 +18,7 @@ export class IntroScene extends Phaser.Scene {
   private idx = 0;
   private container!: Phaser.GameObjects.Container;
   private caption!: Phaser.GameObjects.Text;
-  private captionBg!: Phaser.GameObjects.Graphics;
+  private captionBg: PixelPanel | null = null;
   private slides: Slide[] = [];
   private busy = false;
 
@@ -109,12 +109,11 @@ export class IntroScene extends Phaser.Scene {
     ];
 
     this.container = this.add.container(0, 0);
-    this.captionBg = this.add.graphics();
-    this.caption = this.add.text(0, 0, '', textStyle(13, P.cream)).setOrigin(0.5, 0);
+    this.caption = this.add.text(0, 0, '', textStyle(13, UI.text)).setOrigin(0.5, 0);
     const s = uiScale(this);
     const skip = new Button(this, this.scale.width - 60 * s, 22 * s, 'Pular', () => this.finish(), { width: 90 * s, height: 28 * s, fontSize: 11 * s });
     skip.setDepth(10);
-    this.add.text(this.scale.width / 2, this.scale.height - 8, 'toque / E / espaço para continuar', textStyle(9 * s, UI.textDim)).setOrigin(0.5, 1).setDepth(10);
+    this.add.text(this.scale.width / 2, this.scale.height - 6, 'toque / E / espaço para continuar', hudStyle(9 * s, P.lilacLight)).setOrigin(0.5, 1).setDepth(10);
 
     this.showSlide(0);
     this.input.on('pointerdown', () => this.next());
@@ -144,15 +143,14 @@ export class IntroScene extends Phaser.Scene {
     this.tweens.add({ targets: this.container, alpha: 1, duration: 500 });
 
     const text = this.slides[i].caption;
-    this.caption.setStyle(textStyle(13 * s, P.cream, { wordWrap: { width: Math.min(w - 40, 560 * s) }, align: 'center' }));
+    this.caption.setStyle(textStyle(13 * s, UI.text, { wordWrap: { width: Math.min(w - 40, 560 * s) }, align: 'center' }));
     this.caption.setText(text);
-    const th = this.caption.height + 24 * s;
+    const th = this.caption.height + 28 * s;
     const bw = Math.min(w - 20, 600 * s);
-    this.captionBg.clear();
-    drawPanel(this.captionBg, w / 2 - bw / 2, h - th - 24 * s, bw, th);
+    this.captionBg?.destroy();
+    this.captionBg = drawPanel(this, w / 2 - bw / 2, h - th - 26 * s, bw, th).setDepth(4);
     this.caption.setPosition(w / 2, h - th - 12 * s);
     this.caption.setDepth(5);
-    this.captionBg.setDepth(4);
     sfx('talk');
   }
 
